@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.escalation import EscalationCreate
 from sqlalchemy import func
 from app.api.deps import require_admin
+from app.models.audit_log import AuditLog
 
 router = APIRouter()
 
@@ -52,8 +53,12 @@ def validate_level_sequence(levels):
             detail="Levels must be sequential without gaps"
         )
     
-@router.post("/", dependencies=[Depends(require_admin)])
-def create_escalation(data: EscalationCreate, db: Session = Depends(get_db)):
+@router.post("/")
+def create_escalation(
+    data: EscalationCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
 
     try:
         # 1️⃣ Duplicate check
@@ -106,6 +111,23 @@ def create_escalation(data: EscalationCreate, db: Session = Depends(get_db)):
                 override_email=level.override_email
             )
             db.add(escalation_level)
+
+        audit = AuditLog(
+            user_azure_id=current_user["sub"],
+            action="CREATE",
+            entity="EscalationConfig",
+            entity_id=config.id,
+            old_data=None,
+            new_data={
+                "unit_id": data.unit_id,
+                "geography_id": data.geography_id,
+                "infra_app_id": data.infra_app_id,
+                "application_id": data.application_id,
+                "levels": [level.dict() for level in data.levels]
+            }
+        )
+
+        db.add(audit)
 
         # 5️⃣ Commit everything together
         db.commit()
@@ -169,10 +191,11 @@ def get_escalation(
         "levels": response_levels
     }
 
-@router.put("/", dependencies=[Depends(require_admin)])
+@router.put("/")
 def update_escalation(
     data: EscalationCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
 ):
 
     try:
@@ -205,6 +228,20 @@ def update_escalation(
                     detail=f"Mobile required for user {user.display_name}"
                 )
 
+        old_levels = db.query(EscalationLevel).filter(
+            EscalationLevel.escalation_config_id == config.id
+        ).all()
+
+        old_data = [
+            {
+                "level_number": lvl.level_number,
+                "user_id": lvl.user_id,
+                "override_mobile": lvl.override_mobile,
+                "override_email": lvl.override_email
+            }
+            for lvl in old_levels
+        ]
+
         # 3️⃣ Delete existing levels
         db.query(EscalationLevel).filter(
             EscalationLevel.escalation_config_id == config.id
@@ -222,6 +259,19 @@ def update_escalation(
                 override_email=level.override_email
             )
             db.add(new_level)
+
+        audit = AuditLog(
+            user_azure_id=current_user["sub"],
+            action="UPDATE",
+            entity="EscalationConfig",
+            entity_id=config.id,
+            old_data=old_data,
+            new_data={
+                "levels": [level.dict() for level in data.levels]
+            }
+        )
+
+        db.add(audit)
 
         # 5️⃣ Commit transaction
         db.commit()
