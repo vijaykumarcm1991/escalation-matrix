@@ -5,3 +5,5 @@ pymysql
 python-dotenv
 cryptography
 email-validator
+python-jose[cryptography]
+passlib[bcrypt]

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.core.database import engine, Base
-from app.api import unit_routes, geography_routes, infra_app_routes, application_routes, user_routes, escalation_routes
+from app.api import unit_routes, geography_routes, infra_app_routes, application_routes, user_routes, escalation_routes, auth_routes
 
 # import all models so SQLAlchemy registers them
 from app.models import user, unit, geography, infra_app, application, escalation_config, escalation_level
@@ -12,6 +12,7 @@ app.include_router(infra_app_routes.router, prefix="/infra-apps", tags=["InfraAp
 app.include_router(application_routes.router, prefix="/applications", tags=["Applications"])
 app.include_router(user_routes.router, prefix="/users", tags=["Users"])
 app.include_router(escalation_routes.router, prefix="/escalations", tags=["Escalations"])
+app.include_router(auth_routes.router, prefix="/auth", tags=["Auth"])
 
 @app.on_event("startup")
 def create_tables():
