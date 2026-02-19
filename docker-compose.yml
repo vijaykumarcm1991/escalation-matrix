@@ -6,9 +6,8 @@ services:
     image: mysql:8.0
     container_name: escalation_mysql
     restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: escalation_db
+    env_file:
+      - .env
     ports:
       - "3307:3306"
     volumes:
@@ -26,8 +25,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: mysql+pymysql://root:rootpassword@db:3306/escalation_db
+    env_file:
+      - .env
     ports:
       - "7000:8000"
 
