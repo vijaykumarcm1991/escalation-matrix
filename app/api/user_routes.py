@@ -84,8 +84,13 @@ def import_users_from_json(
     else:
         return {"error": "Invalid JSON format. 'value' not found."}
 
+    previous_active_count = db.query(User).filter(
+        User.role == "user",
+        User.is_active == True
+    ).count()
+
     # 1️⃣ Mark all existing users inactive
-    db.query(User).update({"is_active": False})
+    db.query(User).filter(User.role == "user").update({"is_active": False})
     db.flush()
 
     inserted = 0
@@ -122,10 +127,23 @@ def import_users_from_json(
             db.add(new_user)
             inserted += 1
 
+    db.flush()
+
+    # Count currently active users after upsert
+    current_active_count = db.query(User).filter(
+        User.role == "user",
+        User.is_active == True
+    ).count()
+
+    deactivated = previous_active_count - current_active_count
+    if deactivated < 0:
+        deactivated = 0
+
     summary = {
         "total_processed": len(users_list),
         "inserted": inserted,
-        "updated": updated
+        "updated": updated,
+        "deactivated": deactivated
     }
 
     # Add audit log
