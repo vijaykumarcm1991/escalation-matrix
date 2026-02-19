@@ -4,6 +4,7 @@ from app.core.database import SessionLocal
 from app.models.user import User
 from app.schemas.user import UserUpsert, UserResponse
 from typing import List
+from app.api.deps import require_service
 
 router = APIRouter()
 
@@ -16,8 +17,12 @@ def get_db():
         db.close()
 
 
-@router.post("/upsert", response_model=UserResponse)
-def upsert_user(data: UserUpsert, db: Session = Depends(get_db)):
+@router.post("/upsert")
+def upsert_user(
+    data: UserUpsert,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_service)
+):
 
     existing_user = db.query(User).filter(User.azure_id == data.azure_id).first()
 
