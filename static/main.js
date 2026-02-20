@@ -20,19 +20,20 @@ async function login() {
     window.location.href = "/static/escalations.html";
 }
 
-async function loadEscalations() {
+function isAdminLoggedIn() {
     const token = localStorage.getItem("token");
+    if (!token) return false;
 
-    if (!token) {
-        window.location.href = "/static/login.html";
-        return;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role === "admin";
+    } catch (e) {
+        return false;
     }
+}
+async function loadEscalations() {
 
-    const response = await fetch("/escalations/list", {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
+    const response = await fetch("/escalations/list");
 
     if (!response.ok) {
         alert("Failed to fetch escalations");
@@ -60,17 +61,37 @@ async function loadEscalations() {
                     ${item.application_id}
                 )">View</button>
 
-                <button onclick="deleteEscalation(
-                    ${item.unit_id},
-                    ${item.geography_id},
-                    ${item.infra_app_id},
-                    ${item.application_id}
-                )">Delete</button>
+                ${isAdminLoggedIn() ? `
+                    <button onclick="deleteEscalation(
+                        ${item.unit_id},
+                        ${item.geography_id},
+                        ${item.infra_app_id},
+                        ${item.application_id}
+                    )">Delete</button>
+                ` : ""}
             </td>
         `;
 
         tableBody.appendChild(row);
     });
+
+    const createBtn = document.getElementById("createBtn");
+    if (createBtn && !isAdminLoggedIn()) {
+        createBtn.style.display = "none";
+    }
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const auditBtn = document.getElementById("auditBtn");
+
+    if (!isAdminLoggedIn()) {
+        if (loginBtn) loginBtn.style.display = "inline-block";
+        if (logoutBtn) logoutBtn.style.display = "none";
+        if (auditBtn) auditBtn.style.display = "none";
+    } else {
+        if (loginBtn) loginBtn.style.display = "none";
+        if (logoutBtn) logoutBtn.style.display = "inline-block";
+        if (auditBtn) auditBtn.style.display = "inline-block";
+    }
 }
 
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
@@ -137,7 +158,7 @@ async function loadAuditLogs() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-        window.location.href = "/static/login.html";
+        window.location.href = "/static/admin_login.html";
         return;
     }
 
@@ -181,6 +202,10 @@ function goToAudit() {
 
 function goToCreate() {
     window.location.href = "/static/create_escalation.html";
+}
+
+function goToAdminLogin() {
+    window.location.href = "/static/admin_login.html";
 }
 
 let levelCount = 0;
@@ -305,7 +330,7 @@ async function initializeCreatePage() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-        window.location.href = "/static/login.html";
+        window.location.href = "/static/admin_login.html";
         return;
     }
 
@@ -439,5 +464,5 @@ async function deleteEscalation(unit_id, geography_id, infra_app_id, application
 
 function logout() {
     localStorage.removeItem("token");
-    window.location.href = "/static/login.html";
+    window.location.href = "/static/admin_login.html";
 }

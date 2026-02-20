@@ -4,6 +4,7 @@ from app.api import unit_routes, geography_routes, infra_app_routes, application
 from app.models import audit_log
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 
 # import all models so SQLAlchemy registers them
 from app.models import user, unit, geography, infra_app, application, escalation_config, escalation_level
@@ -26,5 +27,5 @@ def create_tables():
     Base.metadata.create_all(bind=engine)
 
 @app.get("/")
-def health():
-    return {"status": "API running"}
+def root():
+    return RedirectResponse(url="/static/escalations.html")
