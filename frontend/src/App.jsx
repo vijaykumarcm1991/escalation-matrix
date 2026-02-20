@@ -1,35 +1,31 @@
-import { useState } from "react";
-import api from "./api/axios";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import AuditLogs from "./pages/AuditLogs";
+import DashboardLayout from "./layout/DashboardLayout";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 function App() {
-  const [azureId, setAzureId] = useState("");
-  const [message, setMessage] = useState("");
-
-  const login = async () => {
-    try {
-      const response = await api.post(`/auth/login?azure_id=${azureId}`);
-      setMessage("Login Success");
-      console.log(response.data);
-    } catch (error) {
-      setMessage("Login Failed");
-    }
-  };
-
   return (
-    <div style={{ padding: 40 }}>
-      <h2>Escalation Matrix</h2>
+    <BrowserRouter>
+      <Routes>
 
-      <input
-        type="text"
-        placeholder="Enter Azure ID"
-        value={azureId}
-        onChange={(e) => setAzureId(e.target.value)}
-      />
+        {/* Public Route */}
+        <Route path="/login" element={<Login />} />
 
-      <button onClick={login}>Login</button>
+        {/* Protected Routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="audit-logs" element={<AuditLogs />} />
+        </Route>
 
-      <p>{message}</p>
-    </div>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
