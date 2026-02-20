@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audit Logs</title>
+</head>
+<body>
+
+<h2>Audit Logs</h2>
+
+<button onclick="goToEscalations()">Escalations</button>
+<button onclick="logout()">Logout</button>
+
+<table border="1">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Action</th>
+            <th>Performed By</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody id="auditTableBody"></tbody>
+</table>
+
+<script src="/static/main.js"></script>
+<script>
+    loadAuditLogs();
+</script>
+
+</body>
+</html>

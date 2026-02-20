@@ -8,9 +8,12 @@ from app.schemas.escalation import EscalationCreate
 from sqlalchemy import func
 from app.api.deps import require_admin
 from app.models.audit_log import AuditLog
+from app.models.unit import Unit
+from app.models.geography import Geography
+from app.models.infra_app import InfraApp
+from app.models.application import Application
 
 router = APIRouter()
-
 
 def get_db():
     db = SessionLocal()
@@ -277,6 +280,105 @@ def update_escalation(
         db.commit()
 
         return {"message": "Escalation updated successfully"}
+
+    except Exception as e:
+        db.rollback()
+        raise e
+
+@router.get("/list")
+def list_escalations(db: Session = Depends(get_db)):
+
+    results = (
+        db.query(
+            Unit.name.label("unit"),
+            Geography.name.label("geography"),
+            InfraApp.name.label("infra_app"),
+            Application.name.label("application"),
+            EscalationConfig.unit_id,
+            EscalationConfig.geography_id,
+            EscalationConfig.infra_app_id,
+            EscalationConfig.application_id
+        )
+        .join(Unit, EscalationConfig.unit_id == Unit.id)
+        .join(Geography, EscalationConfig.geography_id == Geography.id)
+        .join(InfraApp, EscalationConfig.infra_app_id == InfraApp.id)
+        .join(Application, EscalationConfig.application_id == Application.id)
+        .all()
+    )
+
+    response = []
+
+    for row in results:
+        response.append({
+            "unit": row.unit,
+            "geography": row.geography,
+            "infra_app": row.infra_app,
+            "application": row.application,
+            "unit_id": row.unit_id,
+            "geography_id": row.geography_id,
+            "infra_app_id": row.infra_app_id,
+            "application_id": row.application_id
+        })
+
+    return response
+
+@router.delete("/")
+def delete_escalation(
+    unit_id: int,
+    geography_id: int,
+    infra_app_id: int,
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    try:
+        config = db.query(EscalationConfig).filter(
+            EscalationConfig.unit_id == unit_id,
+            EscalationConfig.geography_id == geography_id,
+            EscalationConfig.infra_app_id == infra_app_id,
+            EscalationConfig.application_id == application_id
+        ).first()
+
+        if not config:
+            raise HTTPException(status_code=404, detail="Escalation config not found")
+
+        # Save old data for audit
+        old_levels = db.query(EscalationLevel).filter(
+            EscalationLevel.escalation_config_id == config.id
+        ).all()
+
+        old_data = [
+            {
+                "level_number": lvl.level_number,
+                "user_id": lvl.user_id,
+                "override_mobile": lvl.override_mobile,
+                "override_email": lvl.override_email
+            }
+            for lvl in old_levels
+        ]
+
+        # Delete levels first
+        db.query(EscalationLevel).filter(
+            EscalationLevel.escalation_config_id == config.id
+        ).delete()
+
+        # Delete config
+        db.delete(config)
+
+        audit = AuditLog(
+            user_azure_id=current_user["sub"],
+            action="DELETE",
+            entity="EscalationConfig",
+            entity_id=config.id,
+            old_data=old_data,
+            new_data=None
+        )
+
+        db.add(audit)
+
+        db.commit()
+
+        return {"message": "Escalation deleted successfully"}
 
     except Exception as e:
         db.rollback()

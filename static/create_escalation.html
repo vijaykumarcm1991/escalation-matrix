@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Escalation</title>
+</head>
+<body>
+
+<h2>Create Escalation</h2>
+
+<button onclick="goToEscalations()">Back</button>
+<button onclick="logout()">Logout</button>
+
+<br><br>
+
+<label>Application:</label><br>
+<select id="application" onchange="checkExistingEscalation()"></select><br><br>
+
+<label>Geography:</label><br>
+<select id="geography" onchange="checkExistingEscalation()"></select><br><br>
+
+<label>Unit:</label><br>
+<select id="unit" onchange="checkExistingEscalation()"></select><br><br>
+
+<label>Infra App:</label><br>
+<select id="infra_app" onchange="checkExistingEscalation()"></select><br><br>
+
+<h3>Levels</h3>
+
+<div id="levelsContainer"></div>
+
+<button onclick="addLevel()">Add Level</button>
+
+<br><br>
+
+<button id="submitButton" onclick="submitEscalation()" data-mode="create">
+    Create Escalation
+</button>
+
+<script src="/static/main.js"></script>
+<script>
+    initializeCreatePage();
+</script>
+
+</body>
+</html>

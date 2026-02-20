@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Escalations</title>
+</head>
+<body>
+
+<h2>Escalations</h2>
+<button onclick="logout()">Logout</button>
+<button onclick="goToAudit()">Audit Logs</button>
+<button onclick="goToCreate()">Create Escalation</button>
+
+<table border="1">
+    <thead>
+        <tr>
+            <th>Unit</th>
+            <th>Geography</th>
+            <th>Infra App</th>
+            <th>Application</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<script src="/static/main.js"></script>
+<script>
+    loadEscalations();
+</script>
+
+</body>
+</html>
