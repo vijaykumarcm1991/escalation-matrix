@@ -6,6 +6,7 @@ from datetime import datetime
 class AuditLogResponse(BaseModel):
     id: int
     user_azure_id: str
+    performed_by: Optional[str] = None   # 👈 NEW FIELD
     action: str
     entity: str
     entity_id: int

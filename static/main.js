@@ -163,7 +163,7 @@ async function loadAuditLogs() {
         row.innerHTML = `
             <td>${log.id}</td>
             <td>${log.action}</td>
-            <td>${log.performed_by || "-"}</td>
+            <td>${log.performed_by || log.user_azure_id || "-"}</td>
             <td>${log.created_at}</td>
         `;
 

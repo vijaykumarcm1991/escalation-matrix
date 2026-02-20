@@ -7,6 +7,7 @@ from app.core.database import SessionLocal
 from app.models.audit_log import AuditLog
 from app.schemas.audit_log import AuditLogResponse
 from app.api.deps import require_admin
+from app.models.user import User
 
 router = APIRouter()
 
@@ -29,7 +30,10 @@ def get_audit_logs(
     current_user: dict = Depends(require_admin)
 ):
 
-    query = db.query(AuditLog)
+    query = (
+        db.query(AuditLog, User.display_name)
+        .outerjoin(User, AuditLog.user_azure_id == User.azure_id)
+    )
 
     if entity:
         query = query.filter(AuditLog.entity == entity)
@@ -45,4 +49,21 @@ def get_audit_logs(
             )
         )
 
-    return query.order_by(AuditLog.created_at.desc()).all()
+    results = query.order_by(AuditLog.created_at.desc()).all()
+
+    response = []
+
+    for audit, display_name in results:
+        response.append({
+            "id": audit.id,
+            "user_azure_id": audit.user_azure_id,
+            "performed_by": display_name,
+            "action": audit.action,
+            "entity": audit.entity,
+            "entity_id": audit.entity_id,
+            "old_data": audit.old_data,
+            "new_data": audit.new_data,
+            "created_at": audit.created_at
+        })
+
+    return response
