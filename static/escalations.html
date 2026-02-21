@@ -24,6 +24,29 @@
     <div class="card">
         <h3>Escalation Configurations</h3>
 
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Search by Unit, Geography, Infra App or Application..." onkeyup="applyFilters()">
+
+            <select id="unitFilter" onchange="applyFilters()">
+                <option value="">All Units</option>
+            </select>
+
+            <select id="geoFilter" onchange="applyFilters()">
+                <option value="">All Geographies</option>
+            </select>
+
+            <select id="infraFilter" onchange="applyFilters()">
+                <option value="">All Infra Apps</option>
+            </select>
+
+            <select id="appFilter" onchange="applyFilters()">
+                <option value="">All Applications</option>
+            </select>
+
+            <button class="btn secondary" onclick="clearFilters()">Clear</button>
+
+        </div>
+
         <table class="modern-table">
             <thead>
                 <tr>
@@ -36,8 +59,31 @@
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
+
+        <div class="pagination-bar">
+            <div id="resultInfo"></div>
+
+            <div class="pagination-controls">
+                <label>
+                    Rows:
+                    <select id="rowsPerPage" onchange="changeRowsPerPage()">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </label>
+
+                <button class="btn secondary" onclick="prevPage()">Prev</button>
+                <span id="pageNumbers"></span>
+                <button class="btn secondary" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
     </div>
 </div>
+
+<div id="toastContainer"></div>
 
 <script src="/static/main.js"></script>
 <script>

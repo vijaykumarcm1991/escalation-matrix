@@ -1,3 +1,8 @@
+let escalationData = [];
+let filteredData = [];
+let currentPage = 1;
+let rowsPerPage = 10;
+
 const API_BASE = "";
 
 async function login() {
@@ -9,7 +14,7 @@ async function login() {
     );
 
     if (!response.ok) {
-        alert("Login failed");
+        showToast("Login failed","error");
         return;
     }
 
@@ -52,7 +57,7 @@ function checkTokenExpiry() {
         const currentTime = Math.floor(Date.now() / 1000);
 
         if (payload.exp && payload.exp < currentTime) {
-            alert("Session expired. Please login again.");
+            showToast("Session expired. Please login again.", "error");
             logout();
         }
     } catch (e) {
@@ -67,44 +72,17 @@ async function loadEscalations() {
     const response = await fetch("/escalations/list");
 
     if (!response.ok) {
-        alert("Failed to fetch escalations");
+        showToast("Failed to fetch escalations", "error");
         return;
     }
 
     const data = await response.json();
 
-    const tableBody = document.getElementById("tableBody");
-    tableBody.innerHTML = "";
-
-    data.forEach(item => {
-        const row = document.createElement("tr");
-
-        row.innerHTML = `
-            <td>${item.unit}</td>
-            <td>${item.geography}</td>
-            <td>${item.infra_app}</td>
-            <td>${item.application}</td>
-            <td>
-                <button onclick="viewLevels(
-                    ${item.unit_id},
-                    ${item.geography_id},
-                    ${item.infra_app_id},
-                    ${item.application_id}
-                )">View</button>
-
-                ${isAdminLoggedIn() ? `
-                    <button onclick="deleteEscalation(
-                        ${item.unit_id},
-                        ${item.geography_id},
-                        ${item.infra_app_id},
-                        ${item.application_id}
-                    )">Delete</button>
-                ` : ""}
-            </td>
-        `;
-
-        tableBody.appendChild(row);
-    });
+    escalationData = data;
+    populateFilters(data);
+    filteredData = data;
+    currentPage = 1;
+    renderPaginatedTable();
 
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
@@ -130,6 +108,179 @@ async function loadEscalations() {
     }
 }
 
+function renderTable(data) {
+
+    const tableBody = document.getElementById("tableBody");
+    tableBody.innerHTML = "";
+
+    data.forEach(item => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${item.unit}</td>
+            <td>${item.geography}</td>
+            <td>${item.infra_app}</td>
+            <td>${item.application}</td>
+            <td>
+                <button class="btn secondary" onclick="viewLevels(
+                    ${item.unit_id},
+                    ${item.geography_id},
+                    ${item.infra_app_id},
+                    ${item.application_id}
+                )">View</button>
+
+                ${isAdminLoggedIn() ? `
+                    <button class="btn danger" onclick="deleteEscalation(
+                        ${item.unit_id},
+                        ${item.geography_id},
+                        ${item.infra_app_id},
+                        ${item.application_id}
+                    )">Delete</button>
+                ` : ""}
+            </td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+
+function populateFilters(data) {
+
+    const units = [...new Set(data.map(d => d.unit))];
+    const geos = [...new Set(data.map(d => d.geography))];
+    const infras = [...new Set(data.map(d => d.infra_app))];
+    const apps = [...new Set(data.map(d => d.application))];
+
+    fillDropdown("unitFilter", units);
+    fillDropdown("geoFilter", geos);
+    fillDropdown("infraFilter", infras);
+    fillDropdown("appFilter", apps);
+}
+
+function renderPaginatedTable() {
+
+    const totalRows = filteredData.length;
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    const paginatedItems = filteredData.slice(start, end);
+
+    renderTable(paginatedItems);
+
+    // Result Info
+    const resultInfo = document.getElementById("resultInfo");
+    resultInfo.innerText = totalRows === 0
+        ? "No results found"
+        : `Showing ${start + 1}-${Math.min(end, totalRows)} of ${totalRows} results`;
+
+    renderPageNumbers(totalRows);
+
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+    const prevBtn = document.querySelector("button[onclick='prevPage()']");
+    const nextBtn = document.querySelector("button[onclick='nextPage()']");
+
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+}
+
+function renderPageNumbers(totalRows) {
+
+    const pageNumbers = document.getElementById("pageNumbers");
+    pageNumbers.innerHTML = "";
+
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement("button");
+        btn.innerText = i;
+        btn.className = "page-btn";
+
+        if (i === currentPage) {
+            btn.classList.add("active");
+        }
+
+        btn.onclick = () => {
+            currentPage = i;
+            renderPaginatedTable();
+        };
+
+        pageNumbers.appendChild(btn);
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPaginatedTable();
+    }
+}
+
+function nextPage() {
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPaginatedTable();
+    }
+}
+
+function changeRowsPerPage() {
+    rowsPerPage = parseInt(document.getElementById("rowsPerPage").value);
+    currentPage = 1;
+    renderPaginatedTable();
+}
+
+function fillDropdown(id, values) {
+    const select = document.getElementById(id);
+    select.innerHTML = `<option value="">All</option>`;
+
+    values.forEach(val => {
+        const option = document.createElement("option");
+        option.value = val;
+        option.textContent = val;
+        select.appendChild(option);
+    });
+}
+
+function applyFilters() {
+
+    const searchText = document.getElementById("searchInput").value.toLowerCase();
+    const unit = document.getElementById("unitFilter").value;
+    const geo = document.getElementById("geoFilter").value;
+    const infra = document.getElementById("infraFilter").value;
+    const app = document.getElementById("appFilter").value;
+
+    const filtered = escalationData.filter(item => {
+
+        const matchesSearch =
+            (item.unit || "").toLowerCase().includes(searchText) ||
+            (item.geography || "").toLowerCase().includes(searchText) ||
+            (item.infra_app || "").toLowerCase().includes(searchText) ||
+            (item.application || "").toLowerCase().includes(searchText);
+
+        const matchesUnit = unit ? item.unit === unit : true;
+        const matchesGeo = geo ? item.geography === geo : true;
+        const matchesInfra = infra ? item.infra_app === infra : true;
+        const matchesApp = app ? item.application === app : true;
+
+        return matchesSearch && matchesUnit && matchesGeo && matchesInfra && matchesApp;
+    });
+
+    filteredData = filtered;
+    currentPage = 1;
+    renderPaginatedTable();
+}
+
+function clearFilters() {
+    document.getElementById("searchInput").value = "";
+    document.getElementById("unitFilter").value = "";
+    document.getElementById("geoFilter").value = "";
+    document.getElementById("infraFilter").value = "";
+    document.getElementById("appFilter").value = "";
+
+    renderTable(escalationData);
+}
+
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
     const token = localStorage.getItem("token");
 
@@ -143,7 +294,7 @@ async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
     );
 
     if (!response.ok) {
-        alert("Escalation not found");
+        showToast("Escalation not found", "error");
         return;
     }
 
@@ -229,7 +380,7 @@ async function loadAuditLogs() {
     });
 
     if (!response.ok) {
-        alert("Failed to fetch audit logs");
+        showToast("Failed to fetch audit logs", "error");
         return;
     }
 
@@ -346,11 +497,11 @@ async function submitEscalation() {
     const result = await response.json();
 
     if (!response.ok) {
-        alert(result.detail || "Failed to create escalation");
+        showToast(result.detail || "Failed to create escalation", "error");
         return;
     }
 
-    alert("Escalation created successfully");
+    showToast("Escalation created successfully", "success");
     window.location.href = "/static/escalations.html";
 }
 
@@ -364,7 +515,7 @@ async function loadDropdown(endpoint, elementId) {
     });
 
     if (!response.ok) {
-        alert("Failed to load " + endpoint);
+        showToast("Failed to load " + endpoint, "error");
         return;
     }
 
@@ -413,7 +564,7 @@ async function loadUsersForLevel(selectElement) {
     });
 
     if (!response.ok) {
-        alert("Failed to load users");
+        showToast("Failed to load users", "error");
         return;
     }
 
@@ -513,11 +664,11 @@ async function deleteEscalation(unit_id, geography_id, infra_app_id, application
     const result = await response.json();
 
     if (!response.ok) {
-        alert(result.detail || "Failed to delete escalation");
+        showToast(result.detail || "Failed to delete escalation", "error");
         return;
     }
 
-    alert("Escalation deleted successfully");
+    showToast("Escalation deleted successfully", "success");
 
     loadEscalations(); // refresh table
 }
@@ -527,4 +678,20 @@ function logout() {
 
     // Redirect to public escalations page
     window.location.href = "/static/escalations.html";
+
+}
+
+function showToast(message, type = "success") {
+    const container = document.getElementById("toastContainer");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
