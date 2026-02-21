@@ -2,27 +2,42 @@
 <html>
 <head>
     <title>Escalations</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<h2>Escalations</h2>
-<button id="loginBtn" onclick="goToAdminLogin()">Admin Login</button>
-<button id="auditBtn" onclick="goToAudit()">Audit Logs</button>
-<button id="logoutBtn" onclick="logout()">Logout</button>
-<button id="createBtn" onclick="goToCreate()">Create Escalation</button>
+<div id="headerBar">
+    <div class="header-left">
+        <h2>Escalation Matrix</h2>
+    </div>
 
-<table border="1">
-    <thead>
-        <tr>
-            <th>Unit</th>
-            <th>Geography</th>
-            <th>Infra App</th>
-            <th>Application</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-</table>
+    <div class="header-right">
+        <span id="loggedInUser"></span>
+        <button id="loginBtn" class="btn secondary" onclick="goToAdminLogin()">Admin Login</button>
+        <button id="auditBtn" class="btn secondary" onclick="goToAudit()">Audit Logs</button>
+        <button id="logoutBtn" class="btn danger" onclick="logout()">Logout</button>
+        <button id="createBtn" class="btn primary" onclick="goToCreate()">Create Escalation</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h3>Escalation Configurations</h3>
+
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>Geography</th>
+                    <th>Infra App</th>
+                    <th>Application</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
 
 <script src="/static/main.js"></script>
 <script>

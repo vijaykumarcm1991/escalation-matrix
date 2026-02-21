@@ -31,7 +31,38 @@ function isAdminLoggedIn() {
         return false;
     }
 }
+
+function getUserFromToken() {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+
+    try {
+        return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+        return null;
+    }
+}
+
+function checkTokenExpiry() {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        if (payload.exp && payload.exp < currentTime) {
+            alert("Session expired. Please login again.");
+            logout();
+        }
+    } catch (e) {
+        logout();
+    }
+}
+
 async function loadEscalations() {
+
+    checkTokenExpiry();
 
     const response = await fetch("/escalations/list");
 
@@ -75,22 +106,27 @@ async function loadEscalations() {
         tableBody.appendChild(row);
     });
 
-    const createBtn = document.getElementById("createBtn");
-    if (createBtn && !isAdminLoggedIn()) {
-        createBtn.style.display = "none";
-    }
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const auditBtn = document.getElementById("auditBtn");
+    const createBtn = document.getElementById("createBtn");
+    const loggedInUser = document.getElementById("loggedInUser");
 
-    if (!isAdminLoggedIn()) {
+    const user = getUserFromToken();
+
+    if (!user || user.role !== "admin") {
         if (loginBtn) loginBtn.style.display = "inline-block";
         if (logoutBtn) logoutBtn.style.display = "none";
         if (auditBtn) auditBtn.style.display = "none";
+        if (createBtn) createBtn.style.display = "none";
+        if (loggedInUser) loggedInUser.innerText = "";
     } else {
         if (loginBtn) loginBtn.style.display = "none";
         if (logoutBtn) logoutBtn.style.display = "inline-block";
         if (auditBtn) auditBtn.style.display = "inline-block";
+        if (createBtn) createBtn.style.display = "inline-block";
+        if (loggedInUser) loggedInUser.innerText =
+            `Welcome, ${user.display_name || user.sub}`;
     }
 }
 
@@ -118,40 +154,64 @@ async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
 
 function showLevelsModal(levels) {
 
+    // Create overlay
+    const overlay = document.createElement("div");
+    overlay.id = "modalOverlay";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.background = "rgba(0,0,0,0.5)";
+    overlay.style.zIndex = "1000";
+
+    // Create modal
+    const modal = document.createElement("div");
+    modal.id = "levelsModal";
+
+    modal.style.position = "fixed";
+    modal.style.top = "50%";
+    modal.style.left = "50%";
+    modal.style.transform = "translate(-50%, -50%)";
+    modal.style.background = "white";
+    modal.style.padding = "25px";
+    modal.style.borderRadius = "10px";
+    modal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.25)";
+    modal.style.zIndex = "1001";
+    modal.style.maxHeight = "75vh";
+    modal.style.overflowY = "auto";
+    modal.style.minWidth = "500px";
+
     let content = "<h3>Escalation Levels</h3>";
-    content += "<table border='1'><tr><th>Level</th><th>Name</th><th>Mobile</th><th>Email</th></tr>";
+    content += "<table class='modern-table'>";
+    content += "<tr><th>Level</th><th>Name</th><th>Mobile</th><th>Email</th></tr>";
 
     levels.forEach(level => {
         content += `
             <tr>
                 <td>${level.level_number}</td>
-                <td>${level.display_name}</td>
-                <td>${level.mobile}</td>
-                <td>${level.email}</td>
+                <td>${level.display_name || ""}</td>
+                <td>${level.mobile || ""}</td>
+                <td>${level.email || ""}</td>
             </tr>
         `;
     });
 
     content += "</table><br>";
-    content += "<button onclick='closeModal()'>Close</button>";
-
-    const modal = document.createElement("div");
-    modal.setAttribute("id", "levelsModal");
-    modal.style.position = "fixed";
-    modal.style.top = "20%";
-    modal.style.left = "30%";
-    modal.style.background = "white";
-    modal.style.padding = "20px";
-    modal.style.border = "2px solid black";
+    content += "<button class='btn primary' onclick='closeModal()'>Close</button>";
 
     modal.innerHTML = content;
 
+    document.body.appendChild(overlay);
     document.body.appendChild(modal);
 }
 
 function closeModal() {
     const modal = document.getElementById("levelsModal");
+    const overlay = document.getElementById("modalOverlay");
+
     if (modal) modal.remove();
+    if (overlay) overlay.remove();
 }
 
 async function loadAuditLogs() {
@@ -464,5 +524,7 @@ async function deleteEscalation(unit_id, geography_id, infra_app_id, application
 
 function logout() {
     localStorage.removeItem("token");
-    window.location.href = "/static/admin_login.html";
+
+    // Redirect to public escalations page
+    window.location.href = "/static/escalations.html";
 }
