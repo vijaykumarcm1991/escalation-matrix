@@ -45,15 +45,17 @@
 
             <button class="btn secondary" onclick="clearFilters()">Clear</button>
 
+            <button id="exportBtn" class="btn primary" onclick="exportCSV()">Export CSV</button>
+
         </div>
 
         <table class="modern-table">
             <thead>
                 <tr>
-                    <th>Unit</th>
-                    <th>Geography</th>
-                    <th>Infra App</th>
-                    <th>Application</th>
+                    <th onclick="sortTable('unit')">Unit</th>
+                    <th onclick="sortTable('geography')">Geography</th>
+                    <th onclick="sortTable('infra_app')">Infra App</th>
+                    <th onclick="sortTable('application')">Application</th>
                     <th>Action</th>
                 </tr>
             </thead>

@@ -2,6 +2,10 @@ let escalationData = [];
 let filteredData = [];
 let currentPage = 1;
 let rowsPerPage = 10;
+let currentSort = {
+    column: null,
+    asc: true
+};
 
 const API_BASE = "";
 
@@ -89,6 +93,7 @@ async function loadEscalations() {
     const auditBtn = document.getElementById("auditBtn");
     const createBtn = document.getElementById("createBtn");
     const loggedInUser = document.getElementById("loggedInUser");
+    const exportBtn = document.getElementById("exportBtn");
 
     const user = getUserFromToken();
 
@@ -98,6 +103,7 @@ async function loadEscalations() {
         if (auditBtn) auditBtn.style.display = "none";
         if (createBtn) createBtn.style.display = "none";
         if (loggedInUser) loggedInUser.innerText = "";
+        if (exportBtn) exportBtn.style.display = "none";
     } else {
         if (loginBtn) loginBtn.style.display = "none";
         if (logoutBtn) logoutBtn.style.display = "inline-block";
@@ -105,6 +111,7 @@ async function loadEscalations() {
         if (createBtn) createBtn.style.display = "inline-block";
         if (loggedInUser) loggedInUser.innerText =
             `Welcome, ${user.display_name || user.sub}`;
+        if (exportBtn) exportBtn.style.display = "inline-block";
     }
 }
 
@@ -207,6 +214,92 @@ function renderPageNumbers(totalRows) {
 
         pageNumbers.appendChild(btn);
     }
+}
+
+function sortTable(column) {
+
+    if (currentSort.column === column) {
+        currentSort.asc = !currentSort.asc;
+    } else {
+        currentSort.column = column;
+        currentSort.asc = true;
+    }
+
+    filteredData.sort((a, b) => {
+
+        const valA = (a[column] || "").toLowerCase();
+        const valB = (b[column] || "").toLowerCase();
+
+        if (valA < valB) return currentSort.asc ? -1 : 1;
+        if (valA > valB) return currentSort.asc ? 1 : -1;
+        return 0;
+    });
+
+    currentPage = 1;
+    renderPaginatedTable();
+}
+
+async function exportCSV() {
+
+    if (!isAdminLoggedIn()) {
+        showToast("Unauthorized action", "error");
+        return;
+    }
+
+    if (filteredData.length === 0) {
+        showToast("No data available to export", "error");
+        return;
+    }
+
+    showToast("Preparing export...", "success");
+
+    let csv = "Unit,Geography,Infra App,Application,Level,Name,Mobile,Email\n";
+
+    for (const config of filteredData) {
+
+        try {
+            const token = localStorage.getItem("token");
+
+            const headers = token
+                ? { "Authorization": "Bearer " + token }
+                : {};
+
+            const response = await fetch(
+                `/escalations?unit_id=${config.unit_id}&geography_id=${config.geography_id}&infra_app_id=${config.infra_app_id}&application_id=${config.application_id}`,
+                { headers }
+            );
+
+            if (!response.ok) continue;
+
+            const data = await response.json();
+
+            const levels = Array.isArray(data) 
+                ? data 
+                : (data.levels || []);
+
+            levels.forEach(level => {
+                csv += `"${config.unit || ""}","${config.geography || ""}","${config.infra_app || ""}","${config.application || ""}",` +
+                    `"${level.level_number || ""}","${level.display_name || ""}","${level.mobile || ""}","${level.email || ""}"\n`;
+            });
+
+        } catch (err) {
+            console.error("Export error:", err);
+        }
+    }
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "escalations_with_levels.csv";
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast("CSV exported with escalation levels", "success");
 }
 
 function prevPage() {
