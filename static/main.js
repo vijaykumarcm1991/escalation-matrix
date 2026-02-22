@@ -788,3 +788,70 @@ function showToast(message, type = "success") {
         toast.remove();
     }, 3000);
 }
+
+async function loadDashboard() {
+
+    if (!isAdminLoggedIn()) {
+        showToast("Unauthorized access", "error");
+        window.location.href = "/static/escalations.html";
+        return;
+    }
+
+    try {
+
+        // Get escalation configs
+        const response = await fetch("/escalations/list");
+        const configs = await response.json();
+
+        document.getElementById("totalEscalations").innerText = configs.length;
+
+        document.getElementById("totalUnits").innerText =
+            new Set(configs.map(c => c.unit)).size;
+
+        document.getElementById("totalGeographies").innerText =
+            new Set(configs.map(c => c.geography)).size;
+
+        document.getElementById("totalApplications").innerText =
+            new Set(configs.map(c => c.application)).size;
+
+        // Count total levels
+        let totalLevels = 0;
+
+        for (const config of configs) {
+            const res = await fetch(
+                `/escalations?unit_id=${config.unit_id}&geography_id=${config.geography_id}&infra_app_id=${config.infra_app_id}&application_id=${config.application_id}`
+            );
+            const data = await res.json();
+            totalLevels += (data.levels || []).length;
+        }
+
+        document.getElementById("totalLevels").innerText = totalLevels;
+
+        // Load recent audit activity
+        const auditRes = await fetch("/audit/list");
+        const audits = await auditRes.json();
+
+        const recent = audits.slice(0, 5);
+
+        const tbody = document.getElementById("recentActivity");
+        tbody.innerHTML = "";
+
+        recent.forEach(a => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${a.action}</td>
+                <td>${a.performed_by || "-"}</td>
+                <td>${new Date(a.created_at).toLocaleString()}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+    } catch (err) {
+        console.error(err);
+        showToast("Failed to load dashboard", "error");
+    }
+}
+
+function goToEscalations() {
+    window.location.href = "/static/escalations.html";
+}

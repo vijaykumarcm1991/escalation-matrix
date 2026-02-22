@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div id="headerBar">
+    <div class="header-left">
+        <h2>Escalation Dashboard</h2>
+    </div>
+    <div class="header-right">
+        <button class="btn secondary" onclick="goToEscalations()">Escalations</button>
+        <button class="btn danger" onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="card">
+
+        <h3>Overview</h3>
+
+        <div class="dashboard-grid">
+
+            <div class="dashboard-card">
+                <h4>Total Escalations</h4>
+                <p id="totalEscalations">0</p>
+            </div>
+
+            <div class="dashboard-card">
+                <h4>Total Units</h4>
+                <p id="totalUnits">0</p>
+            </div>
+
+            <div class="dashboard-card">
+                <h4>Total Geographies</h4>
+                <p id="totalGeographies">0</p>
+            </div>
+
+            <div class="dashboard-card">
+                <h4>Total Applications</h4>
+                <p id="totalApplications">0</p>
+            </div>
+
+            <div class="dashboard-card">
+                <h4>Total Levels</h4>
+                <p id="totalLevels">0</p>
+            </div>
+
+        </div>
+
+        <h3 style="margin-top:40px;">Recent Activity</h3>
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Performed By</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="recentActivity"></tbody>
+        </table>
+
+    </div>
+</div>
+
+<script src="/static/main.js"></script>
+<script>
+    loadDashboard();
+</script>
+
+</body>
+</html>
