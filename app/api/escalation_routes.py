@@ -383,3 +383,57 @@ def delete_escalation(
     except Exception as e:
         db.rollback()
         raise e
+
+@router.get("/export")
+def export_escalations(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+
+    results = (
+        db.query(
+            Unit.name.label("unit"),
+            Geography.name.label("geography"),
+            InfraApp.name.label("infra_app"),
+            Application.name.label("application"),
+            EscalationLevel.level_number,
+            User.display_name,
+            func.coalesce(EscalationLevel.override_mobile, User.mobile).label("mobile"),
+            func.coalesce(EscalationLevel.override_email, User.email).label("email")
+        )
+        .select_from(EscalationConfig)  # 🔥 IMPORTANT
+        .join(EscalationLevel,
+              EscalationLevel.escalation_config_id == EscalationConfig.id)
+        .join(User,
+              EscalationLevel.user_id == User.id)
+        .join(Unit,
+              EscalationConfig.unit_id == Unit.id)
+        .join(Geography,
+              EscalationConfig.geography_id == Geography.id)
+        .join(InfraApp,
+              EscalationConfig.infra_app_id == InfraApp.id)
+        .join(Application,
+              EscalationConfig.application_id == Application.id)
+        .order_by(
+            Unit.name,
+            Geography.name,
+            InfraApp.name,
+            Application.name,
+            EscalationLevel.level_number
+        )
+        .all()
+    )
+
+    return [
+        {
+            "unit": r.unit,
+            "geography": r.geography,
+            "infra_app": r.infra_app,
+            "application": r.application,
+            "level_number": r.level_number,
+            "display_name": r.display_name,
+            "mobile": r.mobile,
+            "email": r.email
+        }
+        for r in results
+    ]

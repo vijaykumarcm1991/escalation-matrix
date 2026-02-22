@@ -6,6 +6,10 @@ let currentSort = {
     column: null,
     asc: true
 };
+let auditData = [];
+let filteredAuditData = [];
+let currentAuditPage = 1;
+const auditRowsPerPage = 10;
 
 const API_BASE = "";
 
@@ -246,60 +250,52 @@ async function exportCSV() {
         return;
     }
 
-    if (filteredData.length === 0) {
-        showToast("No data available to export", "error");
-        return;
-    }
+    try {
+        const token = localStorage.getItem("token");
 
-    showToast("Preparing export...", "success");
+        const response = await fetch("/escalations/export", {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
 
-    let csv = "Unit,Geography,Infra App,Application,Level,Name,Mobile,Email\n";
-
-    for (const config of filteredData) {
-
-        try {
-            const token = localStorage.getItem("token");
-
-            const headers = token
-                ? { "Authorization": "Bearer " + token }
-                : {};
-
-            const response = await fetch(
-                `/escalations?unit_id=${config.unit_id}&geography_id=${config.geography_id}&infra_app_id=${config.infra_app_id}&application_id=${config.application_id}`,
-                { headers }
-            );
-
-            if (!response.ok) continue;
-
-            const data = await response.json();
-
-            const levels = Array.isArray(data) 
-                ? data 
-                : (data.levels || []);
-
-            levels.forEach(level => {
-                csv += `"${config.unit || ""}","${config.geography || ""}","${config.infra_app || ""}","${config.application || ""}",` +
-                    `"${level.level_number || ""}","${level.display_name || ""}","${level.mobile || ""}","${level.email || ""}"\n`;
-            });
-
-        } catch (err) {
-            console.error("Export error:", err);
+        if (!response.ok) {
+            showToast("Export failed", "error");
+            return;
         }
+
+        const data = await response.json();
+
+        if (data.length === 0) {
+            showToast("No data available to export", "error");
+            return;
+        }
+
+        let csv = "Unit,Geography,Infra App,Application,Level,Name,Mobile,Email\n";
+
+        data.forEach(row => {
+            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}",` +
+                    `"${row.level_number}","${row.display_name}","${row.mobile}","${row.email}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "escalations_export.csv";
+        document.body.appendChild(link);
+        link.click();
+
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast("CSV exported successfully", "success");
+
+    } catch (err) {
+        console.error(err);
+        showToast("Export failed", "error");
     }
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "escalations_with_levels.csv";
-    document.body.appendChild(link);
-    link.click();
-
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    showToast("CSV exported with escalation levels", "success");
 }
 
 function prevPage() {
@@ -477,23 +473,19 @@ async function loadAuditLogs() {
         return;
     }
 
-    const data = await response.json();
+    const responseData = await response.json();
+    const logs = Array.isArray(responseData)
+        ? responseData
+        : (responseData.data || []);
 
-    const tableBody = document.getElementById("auditTableBody");
-    tableBody.innerHTML = "";
+    auditData = logs.sort((a, b) =>
+    new Date(b.created_at) - new Date(a.created_at)
+    );
 
-    data.forEach(log => {
-        const row = document.createElement("tr");
+    filteredAuditData = auditData;
+    currentAuditPage = 1;
 
-        row.innerHTML = `
-            <td>${log.id}</td>
-            <td>${log.action}</td>
-            <td>${log.performed_by || log.user_azure_id || "-"}</td>
-            <td>${log.created_at}</td>
-        `;
-
-        tableBody.appendChild(row);
-    });
+    renderAuditTable();
 }
 
 function goToEscalations() {
@@ -799,44 +791,34 @@ async function loadDashboard() {
 
     try {
 
-        // Get escalation configs
-        const response = await fetch("/escalations/list");
-        const configs = await response.json();
+        const token = localStorage.getItem("token");
 
-        document.getElementById("totalEscalations").innerText = configs.length;
+        const response = await fetch("/dashboard/summary", {
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
 
-        document.getElementById("totalUnits").innerText =
-            new Set(configs.map(c => c.unit)).size;
-
-        document.getElementById("totalGeographies").innerText =
-            new Set(configs.map(c => c.geography)).size;
-
-        document.getElementById("totalApplications").innerText =
-            new Set(configs.map(c => c.application)).size;
-
-        // Count total levels
-        let totalLevels = 0;
-
-        for (const config of configs) {
-            const res = await fetch(
-                `/escalations?unit_id=${config.unit_id}&geography_id=${config.geography_id}&infra_app_id=${config.infra_app_id}&application_id=${config.application_id}`
-            );
-            const data = await res.json();
-            totalLevels += (data.levels || []).length;
+        if (!response.ok) {
+            showToast("Failed to load dashboard", "error");
+            return;
         }
 
-        document.getElementById("totalLevels").innerText = totalLevels;
+        const data = await response.json();
 
-        // Load recent audit activity
-        const auditRes = await fetch("/audit/list");
-        const audits = await auditRes.json();
-
-        const recent = audits.slice(0, 5);
+        document.getElementById("totalEscalations").innerText = data.total_escalations;
+        document.getElementById("totalUnits").innerText = data.total_units;
+        document.getElementById("totalGeographies").innerText = data.total_geographies;
+        document.getElementById("totalApplications").innerText = data.total_applications;
+        document.getElementById("totalLevels").innerText = data.total_levels;
+        document.getElementById("auditCreate").innerText = data.audit_breakdown.CREATE || 0;
+        document.getElementById("auditUpdate").innerText = data.audit_breakdown.UPDATE || 0;
+        document.getElementById("auditDelete").innerText = data.audit_breakdown.DELETE || 0;
 
         const tbody = document.getElementById("recentActivity");
         tbody.innerHTML = "";
 
-        recent.forEach(a => {
+        data.recent_activity.forEach(a => {
             const row = document.createElement("tr");
             row.innerHTML = `
                 <td>${a.action}</td>
@@ -848,10 +830,131 @@ async function loadDashboard() {
 
     } catch (err) {
         console.error(err);
-        showToast("Failed to load dashboard", "error");
+        showToast("Dashboard error", "error");
     }
 }
 
 function goToEscalations() {
     window.location.href = "/static/escalations.html";
+}
+
+function applyAuditFilters() {
+
+    const action = document.getElementById("actionFilter").value;
+    const search = document.getElementById("auditSearch").value.toLowerCase();
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    filteredAuditData = auditData.filter(log => {
+
+        const matchesAction =
+            action === "ALL" || log.action === action;
+
+        const matchesSearch =
+            log.performed_by &&
+            log.performed_by.toLowerCase().includes(search);
+
+        const logDate = new Date(log.created_at);
+
+        const matchesStart =
+            !startDate || logDate >= new Date(startDate);
+
+        const matchesEnd =
+            !endDate || logDate <= new Date(endDate + "T23:59:59");
+
+        return matchesAction &&
+               matchesSearch &&
+               matchesStart &&
+               matchesEnd;
+    });
+
+    currentAuditPage = 1;
+    renderAuditTable();
+}
+
+function renderAuditTable() {
+
+    const tbody = document.getElementById("auditTableBody");
+    tbody.innerHTML = "";
+
+    const start = (currentAuditPage - 1) * auditRowsPerPage;
+    const end = start + auditRowsPerPage;
+    const pageData = filteredAuditData.slice(start, end);
+
+    pageData.forEach(log => {
+
+        const row = document.createElement("tr");
+
+        const formattedDate = new Date(log.created_at)
+            .toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            });
+
+        let badgeClass = "";
+        if (log.action === "CREATE") badgeClass = "badge-create";
+        if (log.action === "UPDATE") badgeClass = "badge-update";
+        if (log.action === "DELETE") badgeClass = "badge-delete";
+
+        row.innerHTML = `
+            <td>${log.id}</td>
+            <td><span class="badge ${badgeClass}">${log.action}</span></td>
+            <td>${log.performed_by || "-"}</td>
+            <td>${formattedDate}</td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    document.getElementById("auditResultCount").innerText =
+        `Showing ${filteredAuditData.length} results`;
+
+    renderAuditPagination();
+}
+
+function renderAuditPagination() {
+
+    const totalPages =
+        Math.ceil(filteredAuditData.length / auditRowsPerPage);
+
+    const container =
+        document.getElementById("auditPageNumbers");
+
+    container.innerHTML = "";
+
+    for (let i = 1; i <= totalPages; i++) {
+
+        const btn = document.createElement("button");
+        btn.className =
+            "page-btn" + (i === currentAuditPage ? " active" : "");
+        btn.innerText = i;
+
+        btn.onclick = () => {
+            currentAuditPage = i;
+            renderAuditTable();
+        };
+
+        container.appendChild(btn);
+    }
+}
+
+function prevAuditPage() {
+    if (currentAuditPage > 1) {
+        currentAuditPage--;
+        renderAuditTable();
+    }
+}
+
+function nextAuditPage() {
+    const totalPages =
+        Math.ceil(filteredAuditData.length / auditRowsPerPage);
+
+    if (currentAuditPage < totalPages) {
+        currentAuditPage++;
+        renderAuditTable();
+    }
 }
