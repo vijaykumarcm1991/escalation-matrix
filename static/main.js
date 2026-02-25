@@ -13,24 +13,71 @@ const auditRowsPerPage = 10;
 
 const API_BASE = "";
 
-async function login() {
-    const azureId = document.getElementById("azureId").value;
+async function apiFetch(url, options = {}, { silent = false } = {}) {
 
-    const response = await fetch(
-        `/auth/login?azure_id=${azureId}`,
-        { method: "POST" }
-    );
+    const token = localStorage.getItem("token");
 
-    if (!response.ok) {
-        showToast("Login failed","error");
+    const defaultHeaders = {
+        "Content-Type": "application/json"
+    };
+
+    if (token) {
+        defaultHeaders["Authorization"] = "Bearer " + token;
+    }
+
+    const config = {
+        ...options,
+        headers: {
+            ...defaultHeaders,
+            ...(options.headers || {})
+        }
+    };
+
+    const response = await fetch(url, config);
+
+    // Handle 401 globally
+    if (response.status === 401) {
+        localStorage.removeItem("token");
+        showToast("Session expired. Please login again.", "error");
+        window.location.href = "/static/admin_login.html";
         return;
     }
 
-    const data = await response.json();
+    let data = null;
+    const contentType = response.headers.get("content-type");
 
-    localStorage.setItem("token", data.access_token);
+    if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+    }
 
-    window.location.href = "/static/escalations.html";
+    if (!response.ok) {
+        const message = data?.detail || "Request failed";
+
+        if (!silent) {
+            showToast(message, "error");
+        }
+
+        throw new Error(message);
+    }
+
+    return data;
+}
+
+async function login() {
+    const azureId = document.getElementById("azureId").value;
+
+    try {
+        const data = await apiFetch(
+            `/auth/login?azure_id=${azureId}`,
+            { method: "POST" }
+        );
+
+        localStorage.setItem("token", data.access_token);
+        window.location.href = "/static/escalations.html";
+
+    } catch (err) {
+        // apiFetch already showed toast
+    }
 }
 
 function isAdminLoggedIn() {
@@ -77,14 +124,7 @@ async function loadEscalations() {
 
     checkTokenExpiry();
 
-    const response = await fetch("/escalations/list");
-
-    if (!response.ok) {
-        showToast("Failed to fetch escalations", "error");
-        return;
-    }
-
-    const data = await response.json();
+    const data = await apiFetch("/escalations/list");
 
     escalationData = data;
     populateFilters(data);
@@ -251,20 +291,8 @@ async function exportCSV() {
     }
 
     try {
-        const token = localStorage.getItem("token");
-
-        const response = await fetch("/escalations/export", {
-            headers: {
-                "Authorization": "Bearer " + token
-            }
-        });
-
-        if (!response.ok) {
-            showToast("Export failed", "error");
-            return;
-        }
-
-        const data = await response.json();
+        
+        const data = await apiFetch("/escalations/export");
 
         if (data.length === 0) {
             showToast("No data available to export", "error");
@@ -371,23 +399,10 @@ function clearFilters() {
 }
 
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`,
-        {
-            headers: {
-                "Authorization": "Bearer " + token
-            }
-        }
+    
+    const data = await apiFetch(
+        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`
     );
-
-    if (!response.ok) {
-        showToast("Escalation not found", "error");
-        return;
-    }
-
-    const data = await response.json();
 
     showLevelsModal(data.levels);
 }
@@ -455,25 +470,9 @@ function closeModal() {
 }
 
 async function loadAuditLogs() {
-    const token = localStorage.getItem("token");
+    
+    const responseData = await apiFetch("/audit-logs");
 
-    if (!token) {
-        window.location.href = "/static/admin_login.html";
-        return;
-    }
-
-    const response = await fetch("/audit-logs", {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    if (!response.ok) {
-        showToast("Failed to fetch audit logs", "error");
-        return;
-    }
-
-    const responseData = await response.json();
     const logs = Array.isArray(responseData)
         ? responseData
         : (responseData.data || []);
@@ -533,7 +532,6 @@ function addLevel() {
 }
 
 async function submitEscalation() {
-    const token = localStorage.getItem("token");
 
     const unit_id = parseInt(document.getElementById("unit").value);
     const geography_id = parseInt(document.getElementById("geography").value);
@@ -570,41 +568,23 @@ async function submitEscalation() {
     const method = mode === "update" ? "PUT" : "POST";
     console.log("Mode:", mode);
 
-    const response = await fetch(url, {
+    await apiFetch(url, {
         method: method,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-        },
         body: JSON.stringify(payload)
-    });
+    });   
 
-    const result = await response.json();
-
-    if (!response.ok) {
-        showToast(result.detail || "Failed to create escalation", "error");
-        return;
-    }
-
-    showToast("Escalation created successfully", "success");
+    showToast(
+        mode === "update"
+            ? "Escalation updated successfully"
+            : "Escalation created successfully",
+        "success"
+    );
     window.location.href = "/static/escalations.html";
 }
 
 async function loadDropdown(endpoint, elementId) {
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/${endpoint}`, {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    if (!response.ok) {
-        showToast("Failed to load " + endpoint, "error");
-        return;
-    }
-
-    const data = await response.json();
+    
+    const data = await apiFetch(`/${endpoint}`);
 
     const select = document.getElementById(elementId);
     select.innerHTML = "";
@@ -640,20 +620,8 @@ async function initializeCreatePage() {
 }
 
 async function loadUsersForLevel(selectElement) {
-    const token = localStorage.getItem("token");
 
-    const response = await fetch("/users", {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    });
-
-    if (!response.ok) {
-        showToast("Failed to load users", "error");
-        return;
-    }
-
-    const data = await response.json();
+    const data = await apiFetch("/users");
 
     data.forEach(user => {
         const option = document.createElement("option");
@@ -665,8 +633,6 @@ async function loadUsersForLevel(selectElement) {
 
 async function checkExistingEscalation() {
 
-    const token = localStorage.getItem("token");
-
     const unit_id = document.getElementById("unit").value;
     const geography_id = document.getElementById("geography").value;
     const infra_app_id = document.getElementById("infra_app").value;
@@ -676,28 +642,23 @@ async function checkExistingEscalation() {
         return;
     }
 
-    const response = await fetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`,
-        {
-            headers: {
-                "Authorization": "Bearer " + token
-            }
-        }
-    );
-
     const submitBtn = document.getElementById("submitButton");
 
-    if (response.ok) {
-        const data = await response.json();
+    try {
+        const data = await apiFetch(
+            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`,
+            {},
+            { silent: true }   // 🔥 important
+        );
+
         loadLevelsForUpdate(data.levels);
         submitBtn.innerText = "Update Escalation";
         submitBtn.dataset.mode = "update";
-        console.log("Escalation exists → switching to UPDATE"); 
-    } else {
+
+    } catch (err) {
         clearLevels();
         submitBtn.innerText = "Create Escalation";
         submitBtn.dataset.mode = "create";
-        console.log("Escalation does NOT exist → switching to CREATE");
     }
 }
 
@@ -734,24 +695,9 @@ async function deleteEscalation(unit_id, geography_id, infra_app_id, application
 
     if (!confirmDelete) return;
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(
-        `/escalations/?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`,
-        {
-            method: "DELETE",
-            headers: {
-                "Authorization": "Bearer " + token
-            }
-        }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-        showToast(result.detail || "Failed to delete escalation", "error");
-        return;
-    }
+    await apiFetch(`/escalations/?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`, {
+        method: "DELETE"
+    });
 
     showToast("Escalation deleted successfully", "success");
 
@@ -791,20 +737,7 @@ async function loadDashboard() {
 
     try {
 
-        const token = localStorage.getItem("token");
-
-        const response = await fetch("/dashboard/summary", {
-            headers: {
-                "Authorization": "Bearer " + token
-            }
-        });
-
-        if (!response.ok) {
-            showToast("Failed to load dashboard", "error");
-            return;
-        }
-
-        const data = await response.json();
+        const data = await apiFetch("/dashboard/summary");
 
         document.getElementById("totalEscalations").innerText = data.total_escalations;
         document.getElementById("totalUnits").innerText = data.total_units;

@@ -28,15 +28,27 @@ def dashboard_summary(
 ):
 
     # Total escalation configs
-    total_escalations = db.query(EscalationConfig).count()
+    total_escalations = db.query(EscalationConfig)\
+        .filter(EscalationConfig.is_active == True)\
+        .count()
 
     # Unique counts
-    total_units = db.query(func.count(func.distinct(EscalationConfig.unit_id))).scalar()
-    total_geographies = db.query(func.count(func.distinct(EscalationConfig.geography_id))).scalar()
-    total_applications = db.query(func.count(func.distinct(EscalationConfig.application_id))).scalar()
+    total_units = db.query(func.count(func.distinct(EscalationConfig.unit_id)))\
+        .filter(EscalationConfig.is_active == True)\
+        .scalar()
+    total_geographies = db.query(func.count(func.distinct(EscalationConfig.geography_id)))\
+        .filter(EscalationConfig.is_active == True)\
+        .scalar()
+    total_applications = db.query(func.count(func.distinct(EscalationConfig.application_id)))\
+        .filter(EscalationConfig.is_active == True)\
+        .scalar()
 
     # Total levels
-    total_levels = db.query(EscalationLevel).count()
+    total_levels = db.query(EscalationLevel)\
+        .join(EscalationConfig,
+            EscalationLevel.escalation_config_id == EscalationConfig.id)\
+        .filter(EscalationConfig.is_active == True)\
+        .count()
 
     # Audit breakdown
     audit_counts = (
