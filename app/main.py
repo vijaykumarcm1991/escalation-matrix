@@ -5,13 +5,27 @@ from app.models import audit_log
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+from starlette.responses import Response
+import os
+
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response: Response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 # import all models so SQLAlchemy registers them
 from app.models import user, unit, geography, infra_app, application, escalation_config, escalation_level
 
 app = FastAPI(title="Escalation Matrix API")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+app.mount(
+    "/static",
+    NoCacheStaticFiles(directory=os.path.join(BASE_DIR, "static")),
+    name="static"
+)
 
 app.include_router(unit_routes.router, prefix="/units", tags=["Units"])
 app.include_router(geography_routes.router, prefix="/geographies", tags=["Geographies"])

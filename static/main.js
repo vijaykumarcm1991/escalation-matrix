@@ -124,13 +124,19 @@ async function loadEscalations() {
 
     checkTokenExpiry();
 
-    const data = await apiFetch("/escalations/list");
+    try {
+        const data = await apiFetch("/escalations/list");
+        escalationData = data;
+        populateFilters(data);
+        filteredData = data;
+        currentPage = 1;
+        renderPaginatedTable();
+    } catch (err) {
+        console.error("Escalations load error", err);
+    }
+}
 
-    escalationData = data;
-    populateFilters(data);
-    filteredData = data;
-    currentPage = 1;
-    renderPaginatedTable();
+function setupHeaderVisibility() {
 
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
@@ -138,14 +144,16 @@ async function loadEscalations() {
     const createBtn = document.getElementById("createBtn");
     const loggedInUser = document.getElementById("loggedInUser");
     const exportBtn = document.getElementById("exportBtn");
+    const dashboardBtn = document.getElementById("dashboardBtn");
 
     const user = getUserFromToken();
 
-    if (!user || user.role !== "admin") {
+    if (!user || user.role?.toLowerCase() !== "admin") {
         if (loginBtn) loginBtn.style.display = "inline-block";
         if (logoutBtn) logoutBtn.style.display = "none";
         if (auditBtn) auditBtn.style.display = "none";
         if (createBtn) createBtn.style.display = "none";
+        if (dashboardBtn) dashboardBtn.style.display = "none";
         if (loggedInUser) loggedInUser.innerText = "";
         if (exportBtn) exportBtn.style.display = "none";
     } else {
@@ -153,8 +161,9 @@ async function loadEscalations() {
         if (logoutBtn) logoutBtn.style.display = "inline-block";
         if (auditBtn) auditBtn.style.display = "inline-block";
         if (createBtn) createBtn.style.display = "inline-block";
+        if (dashboardBtn) dashboardBtn.style.display = "inline-block";
         if (loggedInUser) loggedInUser.innerText =
-            `Welcome, ${user.display_name || user.sub}`;
+            `Welcome, ${user.sub}`;
         if (exportBtn) exportBtn.style.display = "inline-block";
     }
 }
@@ -357,6 +366,10 @@ function fillDropdown(id, values) {
         option.textContent = val;
         select.appendChild(option);
     });
+}
+
+function goToDashboard() {
+    window.location.href = "/static/dashboard.html";
 }
 
 function applyFilters() {
