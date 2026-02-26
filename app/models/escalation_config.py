@@ -1,6 +1,7 @@
 from sqlalchemy import Column, BigInteger, ForeignKey, Boolean, TIMESTAMP, UniqueConstraint
 from sqlalchemy.sql import func
 from app.core.database import Base
+from sqlalchemy import String
 
 class EscalationConfig(Base):
     __tablename__ = "escalation_configs"
@@ -11,6 +12,7 @@ class EscalationConfig(Base):
     geography_id = Column(BigInteger, ForeignKey("geographies.id"), nullable=False)
     infra_app_id = Column(BigInteger, ForeignKey("infra_apps.id"), nullable=False)
     application_id = Column(BigInteger, ForeignKey("applications.id"), nullable=False)
+    affected_ci = Column(String(255), nullable=True)
 
     is_active = Column(Boolean, default=True)
 
@@ -23,6 +25,7 @@ class EscalationConfig(Base):
             "geography_id",
             "infra_app_id",
             "application_id",
+            "affected_ci",
             name="uniq_escalation"
         ),
     )

@@ -181,12 +181,14 @@ function renderTable(data) {
             <td>${item.geography}</td>
             <td>${item.infra_app}</td>
             <td>${item.application}</td>
+            <td>${item.affected_ci || ""}</td>
             <td>
                 <button class="btn secondary" onclick="viewLevels(
                     ${item.unit_id},
                     ${item.geography_id},
                     ${item.infra_app_id},
-                    ${item.application_id}
+                    ${item.application_id},
+                    '${item.affected_ci || ""}'
                 )">View</button>
 
                 ${isAdminLoggedIn() ? `
@@ -194,7 +196,8 @@ function renderTable(data) {
                         ${item.unit_id},
                         ${item.geography_id},
                         ${item.infra_app_id},
-                        ${item.application_id}
+                        ${item.application_id},
+                        '${item.affected_ci || ""}'
                     )">Delete</button>
                 ` : ""}
             </td>
@@ -308,10 +311,10 @@ async function exportCSV() {
             return;
         }
 
-        let csv = "Unit,Geography,Infra App,Application,Level,Name,Mobile,Email\n";
+        let csv = "Unit,Geography,Infra App,Application,Affected CI,Level,Name,Mobile,Email\n";
 
         data.forEach(row => {
-            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}",` +
+            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}","${row.affected_ci || ""}",` +
                     `"${row.level_number}","${row.display_name}","${row.mobile}","${row.email}"\n`;
         });
 
@@ -386,7 +389,8 @@ function applyFilters() {
             (item.unit || "").toLowerCase().includes(searchText) ||
             (item.geography || "").toLowerCase().includes(searchText) ||
             (item.infra_app || "").toLowerCase().includes(searchText) ||
-            (item.application || "").toLowerCase().includes(searchText);
+            (item.application || "").toLowerCase().includes(searchText) ||
+            (item.affected_ci || "").toLowerCase().includes(searchText);
 
         const matchesUnit = unit ? item.unit === unit : true;
         const matchesGeo = geo ? item.geography === geo : true;
@@ -411,10 +415,10 @@ function clearFilters() {
     renderTable(escalationData);
 }
 
-async function viewLevels(unit_id, geography_id, infra_app_id, application_id) {
+async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
     
     const data = await apiFetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`
+        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`
     );
 
     showLevelsModal(data.levels);
@@ -546,10 +550,14 @@ function addLevel() {
 
 async function submitEscalation() {
 
-    const unit_id = parseInt(document.getElementById("unit").value);
-    const geography_id = parseInt(document.getElementById("geography").value);
-    const infra_app_id = parseInt(document.getElementById("infra_app").value);
-    const application_id = parseInt(document.getElementById("application").value);
+    console.log("submitEscalation triggered");
+
+    const unit_id = document.getElementById("unit").value;
+    const geography_id = document.getElementById("geography").value;
+    const infra_app_id = document.getElementById("infra_app").value;
+    const application_id = document.getElementById("application").value;
+    const affected_ci =
+        document.getElementById("affected_ci").value || null;
 
     const users = document.getElementsByClassName("levelUser");
     const overrideMobiles = document.getElementsByClassName("overrideMobile");
@@ -560,7 +568,7 @@ async function submitEscalation() {
     for (let i = 0; i < users.length; i++) {
         levels.push({
             level_number: i + 1,
-            user_id: parseInt(users[i].value),
+            user_id: users[i].value,
             override_mobile: overrideMobiles[i].value || null,
             override_email: overrideEmails[i].value || null
         });
@@ -571,28 +579,28 @@ async function submitEscalation() {
         geography_id,
         infra_app_id,
         application_id,
+        affected_ci,
         levels
     };
 
-    const submitBtn = document.getElementById("submitButton");
-    const mode = submitBtn.dataset.mode || "create";
+    try {
+        await apiFetch("/escalations/", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
 
-    const url = "/escalations/";
-    const method = mode === "update" ? "PUT" : "POST";
-    console.log("Mode:", mode);
+        showToast("Escalation saved successfully", "success");
 
-    await apiFetch(url, {
-        method: method,
-        body: JSON.stringify(payload)
-    });   
+        setTimeout(() => {
+            window.location.href = "/static/escalations.html";
+        }, 2000);
 
-    showToast(
-        mode === "update"
-            ? "Escalation updated successfully"
-            : "Escalation created successfully",
-        "success"
-    );
-    window.location.href = "/static/escalations.html";
+    } catch (err) {
+        // // apiFetch already shows error toast if implemented correctly
+        // console.error(err);
+        // console.log("Caught error:", err);
+        // alert("Error occurred");
+    }
 }
 
 async function loadDropdown(endpoint, elementId) {
@@ -650,6 +658,7 @@ async function checkExistingEscalation() {
     const geography_id = document.getElementById("geography").value;
     const infra_app_id = document.getElementById("infra_app").value;
     const application_id = document.getElementById("application").value;
+    const affected_ci = document.getElementById("affected_ci").value || "";
 
     if (!unit_id || !geography_id || !infra_app_id || !application_id) {
         return;
@@ -659,7 +668,7 @@ async function checkExistingEscalation() {
 
     try {
         const data = await apiFetch(
-            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`,
+            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`,
             {},
             { silent: true }   // 🔥 important
         );
@@ -702,13 +711,13 @@ function clearLevels() {
     levelCount = 0;
 }
 
-async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id) {
+async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
 
     const confirmDelete = confirm("Are you sure you want to delete this escalation?");
 
     if (!confirmDelete) return;
 
-    await apiFetch(`/escalations/?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}`, {
+    await apiFetch(`/escalations/?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`, {
         method: "DELETE"
     });
 

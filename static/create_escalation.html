@@ -2,8 +2,11 @@
 <html>
 <head>
     <title>Create Escalation</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
+<div id="toastContainer"></div>
 
 <h2>Create Escalation</h2>
 
@@ -23,6 +26,9 @@
 
 <label>Infra App:</label><br>
 <select id="infra_app" onchange="checkExistingEscalation()"></select><br><br>
+
+<label>Affected CI (Optional):</label><br>
+<input type="text" id="affected_ci" placeholder="ivrtel01.dhk.bl.ombd/10.231.1.206" onchange="checkExistingEscalation()"><br><br>
 
 <h3>Levels</h3>
 
