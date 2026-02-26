@@ -436,6 +436,11 @@ function showLevelsModal(levels) {
     overlay.style.height = "100%";
     overlay.style.background = "rgba(0,0,0,0.5)";
     overlay.style.zIndex = "1000";
+    overlay.style.opacity = "0";
+    overlay.style.transition = "opacity 0.2s ease";
+
+    // Close when clicking outside
+    overlay.addEventListener("click", closeModal);
 
     // Create modal
     const modal = document.createElement("div");
@@ -453,6 +458,9 @@ function showLevelsModal(levels) {
     modal.style.maxHeight = "75vh";
     modal.style.overflowY = "auto";
     modal.style.minWidth = "500px";
+    modal.style.opacity = "0";
+    modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    modal.style.transform = "translate(-50%, -55%)";
 
     let content = "<h3>Escalation Levels</h3>";
     content += "<table class='modern-table'>";
@@ -476,15 +484,47 @@ function showLevelsModal(levels) {
 
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
+
+    // Disable background scroll
+    document.body.style.overflow = "hidden";
+
+    // Trigger fade animation
+    setTimeout(() => {
+        overlay.style.opacity = "1";
+        modal.style.opacity = "1";
+        modal.style.transform = "translate(-50%, -50%)";
+    }, 10);
 }
 
 function closeModal() {
     const modal = document.getElementById("levelsModal");
     const overlay = document.getElementById("modalOverlay");
 
-    if (modal) modal.remove();
-    if (overlay) overlay.remove();
+    if (!modal || !overlay) return;
+
+    // Fade out
+    overlay.style.opacity = "0";
+    modal.style.opacity = "0";
+    modal.style.transform = "translate(-50%, -55%)";
+
+    setTimeout(() => {
+        modal.remove();
+        overlay.remove();
+
+        // Restore scroll
+        document.body.style.overflow = "";
+    }, 200);
 }
+
+// Close escalation modal on ESC key
+document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+        const modal = document.getElementById("levelsModal");
+        if (modal) {
+            closeModal();
+        }
+    }
+});
 
 async function loadAuditLogs() {
     
