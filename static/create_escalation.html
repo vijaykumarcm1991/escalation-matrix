@@ -4,43 +4,87 @@
     <title>Create Escalation</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="page-body">
 
 <div id="toastContainer"></div>
 
-<h2>Create Escalation</h2>
+<div class="page-container">
+    <div class="card">
 
-<button onclick="goToEscalations()">Back</button>
-<button onclick="logout()">Logout</button>
+        <div class="page-header">
+            <div class="header-logo">
+                <img src="/static/onmobile-logo.png" class="logo-img" alt="OnMobile Logo">
+                <div>
+                    <h2>Create Escalation</h2>
+                    <p class="page-subtitle">Define escalation matrix configuration</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn secondary" onclick="goToEscalations()">Back</button>
+                <button class="btn danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
 
-<br><br>
+        <!-- Configuration Section -->
+        <div class="section">
+            <h3>Configuration</h3>
 
-<label>Application:</label><br>
-<select id="application" onchange="checkExistingEscalation()"></select><br><br>
+            <div class="grid-2">
 
-<label>Geography:</label><br>
-<select id="geography" onchange="checkExistingEscalation()"></select><br><br>
+                <div class="form-group">
+                    <label>Application</label>
+                    <select id="application" onchange="checkExistingEscalation()"></select>
+                </div>
 
-<label>Unit:</label><br>
-<select id="unit" onchange="checkExistingEscalation()"></select><br><br>
+                <div class="form-group">
+                    <label>Geography</label>
+                    <select id="geography" onchange="checkExistingEscalation()"></select>
+                </div>
 
-<label>Infra App:</label><br>
-<select id="infra_app" onchange="checkExistingEscalation()"></select><br><br>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <select id="unit" onchange="checkExistingEscalation()"></select>
+                </div>
 
-<label>Affected CI (Optional):</label><br>
-<input type="text" id="affected_ci" placeholder="ivrtel01.dhk.bl.ombd/10.231.1.206" onchange="checkExistingEscalation()"><br><br>
+                <div class="form-group">
+                    <label>Infra App</label>
+                    <select id="infra_app" onchange="checkExistingEscalation()"></select>
+                </div>
 
-<h3>Levels</h3>
+            </div>
 
-<div id="levelsContainer"></div>
+            <div class="form-group full-width">
+                <label>Affected CI (Optional)</label>
+                <input type="text"
+                       id="affected_ci"
+                       placeholder="ivrtel01.dhk.bl.ombd/10.231.1.206"
+                       onchange="checkExistingEscalation()">
+            </div>
+        </div>
 
-<button onclick="addLevel()">Add Level</button>
+        <!-- Levels Section -->
+        <div class="section">
+            <h3>Escalation Levels</h3>
 
-<br><br>
+            <div id="levelsContainer"></div>
 
-<button id="submitButton" onclick="submitEscalation()" data-mode="create">
-    Create Escalation
-</button>
+            <button class="btn secondary small" onclick="addLevel()">
+                + Add Level
+            </button>
+        </div>
+
+        <!-- Action -->
+        <div class="action-bar">
+            <button id="submitButton"
+                    class="btn primary"
+                    onclick="submitEscalation()"
+                    data-mode="create">
+                Create Escalation
+            </button>
+        </div>
+
+    </div>
+</div>
 
 <script src="/static/main.js"></script>
 <script>

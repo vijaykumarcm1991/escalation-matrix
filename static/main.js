@@ -528,19 +528,26 @@ function addLevel() {
     const container = document.getElementById("levelsContainer");
 
     const div = document.createElement("div");
+    div.classList.add("level-card");
     div.setAttribute("id", "level_" + levelCount);
 
     div.innerHTML = `
         <h4>Level ${levelCount}</h4>
 
-        <label>User:</label><br>
-        <select class="levelUser"></select><br>
+        <div class="form-group">
+            <label>User</label>
+            <select class="levelUser"></select>
+        </div>
 
-        <label>Override Mobile (optional):</label><br>
-        <input type="text" class="overrideMobile"><br>
+        <div class="form-group">
+            <label>Override Mobile (optional)</label>
+            <input type="text" class="overrideMobile">
+        </div>
 
-        <label>Override Email (optional):</label><br>
-        <input type="text" class="overrideEmail"><br><br>
+        <div class="form-group">
+            <label>Override Email (optional)</label>
+            <input type="text" class="overrideEmail">
+        </div>
     `;
 
     container.appendChild(div);

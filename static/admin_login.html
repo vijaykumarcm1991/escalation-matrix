@@ -2,15 +2,32 @@
 <html>
 <head>
     <title>Escalation Matrix - Login</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="auth-body">
 
-<h2>Login</h2>
+<div id="toastContainer"></div>
 
-<input type="text" id="azureId" placeholder="Enter Azure ID">
-<button onclick="login()">Login</button>
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <img src="/static/onmobile-logo.png" alt="OnMobile Logo">
+        </div>
+
+        <h1 class="brand-title">Escalation Matrix System</h1>
+        <p class="auth-subtitle">Admin Access</p>
+
+        <div class="form-group">
+            <label>Azure ID</label>
+            <input type="text" id="azureId" placeholder="Enter Azure ID">
+        </div>
+
+        <button class="btn primary full-width" onclick="login()">
+            Login
+        </button>
+    </div>
+</div>
 
 <script src="/static/main.js"></script>
-
 </body>
 </html>
