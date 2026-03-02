@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from starlette.responses import Response
 import os
+from app.api.admin_bulk_routes import router as bulk_router
 
 class NoCacheStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
@@ -36,6 +37,7 @@ app.include_router(escalation_routes.router, prefix="/escalations", tags=["Escal
 app.include_router(auth_routes.router, prefix="/auth", tags=["Auth"])
 app.include_router(audit_routes.router, prefix="/audit-logs", tags=["Audit Logs"])
 app.include_router(dashboard_routes.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(bulk_router)
 
 @app.on_event("startup")
 def create_tables():

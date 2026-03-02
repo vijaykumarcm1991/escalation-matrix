@@ -63,6 +63,29 @@ async function apiFetch(url, options = {}, { silent = false } = {}) {
     return data;
 }
 
+function formatToIST(utcString) {
+
+    if (!utcString) return "";
+
+    // Parse manually as UTC components
+    const [datePart, timePart] = utcString.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute, second] = timePart.split(":").map(Number);
+
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+
+    return utcDate.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+    });
+}
+
 async function login() {
     const azureId = document.getElementById("azureId").value;
 
@@ -192,6 +215,14 @@ function renderTable(data) {
                 )">View</button>
 
                 ${isAdminLoggedIn() ? `
+                    <button class="btn primary" onclick="goToUpdate(
+                        ${item.unit_id},
+                        ${item.geography_id},
+                        ${item.infra_app_id},
+                        ${item.application_id},
+                        '${item.affected_ci || ""}'
+                    )">Update</button>
+
                     <button class="btn danger" onclick="deleteEscalation(
                         ${item.unit_id},
                         ${item.geography_id},
@@ -556,6 +587,21 @@ function goToCreate() {
     window.location.href = "/static/create_escalation.html";
 }
 
+function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
+
+    const ciParam = affected_ci ? encodeURIComponent(affected_ci) : "";
+
+    const url = `/static/create_escalation.html?` +
+        `unit_id=${unit_id}` +
+        `&geography_id=${geography_id}` +
+        `&infra_app_id=${infra_app_id}` +
+        `&application_id=${application_id}` +
+        `&affected_ci=${ciParam}` +
+        `&mode=update`;
+
+    window.location.href = url;
+}
+
 function goToAdminLogin() {
     window.location.href = "/static/admin_login.html";
 }
@@ -574,9 +620,14 @@ function addLevel() {
     div.innerHTML = `
         <h4>Level ${levelCount}</h4>
 
-        <div class="form-group">
+        <div class="form-group autocomplete-wrapper">
             <label>User</label>
-            <select class="levelUser"></select>
+            <div class="autocomplete-container">
+                <input type="text" class="levelUserInput" placeholder="Type user name..." autocomplete="off">
+                <span class="input-spinner hidden"></span>
+                <input type="hidden" class="levelUserId">
+                <div class="userSuggestions"></div>
+            </div>
         </div>
 
         <div class="form-group">
@@ -592,7 +643,9 @@ function addLevel() {
 
     container.appendChild(div);
 
-    loadUsersForLevel(div.querySelector(".levelUser"));
+    attachUserAutocomplete(div);
+
+    // loadUsersForLevel(div.querySelector(".levelUser"));
 }
 
 async function submitEscalation() {
@@ -606,16 +659,40 @@ async function submitEscalation() {
     const affected_ci =
         document.getElementById("affected_ci").value || null;
 
-    const users = document.getElementsByClassName("levelUser");
+    const users = document.getElementsByClassName("levelUserId");
     const overrideMobiles = document.getElementsByClassName("overrideMobile");
     const overrideEmails = document.getElementsByClassName("overrideEmail");
 
     const levels = [];
 
     for (let i = 0; i < users.length; i++) {
+
+        let userId = users[i].value;
+
+        // If hidden user_id is empty, try resolving from input text
+        if (!userId) {
+            const inputField = document.getElementsByClassName("levelUserInput")[i];
+            const enteredName = inputField.value.trim().toLowerCase();
+
+            if (window._usersCache) {
+                const matchedUser = window._usersCache.find(u =>
+                    u.display_name.toLowerCase() === enteredName
+                );
+
+                if (matchedUser) {
+                    userId = matchedUser.id;
+                }
+            }
+        }
+
+        if (!userId) {
+            showToast(`Level ${i + 1} user not selected properly`, "error");
+            return;
+        }
+
         levels.push({
             level_number: i + 1,
-            user_id: users[i].value,
+            user_id: parseInt(userId),
             override_mobile: overrideMobiles[i].value || null,
             override_email: overrideEmails[i].value || null
         });
@@ -631,8 +708,13 @@ async function submitEscalation() {
     };
 
     try {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get("mode");
+
+        const method = mode === "update" ? "PUT" : "POST";
+
         await apiFetch("/escalations/", {
-            method: "POST",
+            method: method,
             body: JSON.stringify(payload)
         });
 
@@ -671,6 +753,7 @@ function initializeLevels() {
 }
 
 async function initializeCreatePage() {
+
     const token = localStorage.getItem("token");
 
     if (!token) {
@@ -684,7 +767,21 @@ async function initializeCreatePage() {
     await loadDropdown("infra-apps", "infra_app");
 
     initializeLevels();
-    checkExistingEscalation();  // 🔥 ADD THIS LINE
+
+    // ---- READ QUERY PARAMS FOR UPDATE MODE ----
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+
+    if (mode === "update") {
+
+        document.getElementById("unit").value = params.get("unit_id");
+        document.getElementById("geography").value = params.get("geography_id");
+        document.getElementById("infra_app").value = params.get("infra_app_id");
+        document.getElementById("application").value = params.get("application_id");
+        document.getElementById("affected_ci").value = params.get("affected_ci") || "";
+
+        await checkExistingEscalation();
+    }
 }
 
 async function loadUsersForLevel(selectElement) {
@@ -696,6 +793,80 @@ async function loadUsersForLevel(selectElement) {
         option.value = user.id;  // IMPORTANT
         option.text = user.display_name;
         selectElement.appendChild(option);
+    });
+}
+
+async function attachUserAutocomplete(containerDiv) {
+
+    const input = containerDiv.querySelector(".levelUserInput");
+    const hiddenInput = containerDiv.querySelector(".levelUserId");
+    const suggestionBox = containerDiv.querySelector(".userSuggestions");
+    const spinner = containerDiv.querySelector(".input-spinner");
+
+    let usersCache = [];
+
+    // Load users once (cached)
+    if (!window._usersCache) {
+        spinner.classList.remove("hidden");
+        window._usersCache = await apiFetch("/users");
+        spinner.classList.add("hidden");
+    }
+
+    usersCache = window._usersCache;
+
+    let debounceTimer;
+
+    input.addEventListener("input", function () {
+
+        const value = this.value.toLowerCase();
+
+        // Reset only if user is typing manually
+        if (document.activeElement === input) {
+            hiddenInput.value = "";
+        }
+
+        suggestionBox.innerHTML = "";
+
+        clearTimeout(debounceTimer);
+
+        debounceTimer = setTimeout(() => {
+
+            if (!value) return;
+
+            spinner.classList.remove("hidden");
+
+            const filtered = usersCache.filter(user =>
+                user.display_name.toLowerCase().includes(value)
+            ).slice(0, 5);
+
+            spinner.classList.add("hidden");
+
+            if (filtered.length === 0) {
+                suggestionBox.innerHTML = "<div class='no-result'>No users found</div>";
+                return;
+            }
+
+            filtered.forEach(user => {
+                const div = document.createElement("div");
+                div.className = "suggestion-item";
+                div.innerText = user.display_name;
+
+                div.onclick = () => {
+                    input.value = user.display_name;
+                    hiddenInput.value = user.id;
+                    suggestionBox.innerHTML = "";
+                };
+
+                suggestionBox.appendChild(div);
+            });
+
+        }, 300); // 300ms debounce
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!containerDiv.contains(e.target)) {
+            suggestionBox.innerHTML = "";
+        }
     });
 }
 
@@ -734,21 +905,28 @@ async function checkExistingEscalation() {
 function loadLevelsForUpdate(levels) {
 
     clearLevels();
-
     levelCount = 0;
 
     levels.forEach(level => {
+
         addLevel();
 
-        const users = document.getElementsByClassName("levelUser");
-        const overrideMobiles = document.getElementsByClassName("overrideMobile");
-        const overrideEmails = document.getElementsByClassName("overrideEmail");
+        const levelCards = document.getElementsByClassName("level-card");
+        const currentCard = levelCards[levelCards.length - 1];
 
-        const index = users.length - 1;
+        const input = currentCard.querySelector(".levelUserInput");
+        const hiddenInput = currentCard.querySelector(".levelUserId");
+        const overrideMobile = currentCard.querySelector(".overrideMobile");
+        const overrideEmail = currentCard.querySelector(".overrideEmail");
 
-        users[index].value = level.user_id;
-        overrideMobiles[index].value = level.mobile || "";
-        overrideEmails[index].value = level.email || "";
+        // Prefill visible name
+        input.value = level.display_name || "";
+
+        // Prefill hidden user_id
+        hiddenInput.value = level.user_id;
+
+        overrideMobile.value = level.mobile || "";
+        overrideEmail.value = level.email || "";
     });
 }
 
@@ -825,7 +1003,7 @@ async function loadDashboard() {
             row.innerHTML = `
                 <td>${a.action}</td>
                 <td>${a.performed_by || "-"}</td>
-                <td>${new Date(a.created_at).toLocaleString()}</td>
+                <td>${formatToIST(a.created_at)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -887,16 +1065,6 @@ function renderAuditTable() {
 
         const row = document.createElement("tr");
 
-        const formattedDate = new Date(log.created_at)
-            .toLocaleString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-            });
-
         let badgeClass = "";
         if (log.action === "CREATE") badgeClass = "badge-create";
         if (log.action === "UPDATE") badgeClass = "badge-update";
@@ -906,7 +1074,7 @@ function renderAuditTable() {
             <td>${log.id}</td>
             <td><span class="badge ${badgeClass}">${log.action}</span></td>
             <td>${log.performed_by || "-"}</td>
-            <td>${formattedDate}</td>
+            <td>${formatToIST(log.created_at)}</td>
         `;
 
         tbody.appendChild(row);

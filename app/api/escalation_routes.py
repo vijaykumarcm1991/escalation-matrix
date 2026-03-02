@@ -191,6 +191,7 @@ def get_escalation(
     results = (
         db.query(
             EscalationLevel.level_number,
+            EscalationLevel.user_id,
             User.display_name,
             func.coalesce(EscalationLevel.override_mobile, User.mobile).label("mobile"),
             func.coalesce(EscalationLevel.override_email, User.email).label("email"),
@@ -221,6 +222,7 @@ def get_escalation(
     for row in results:
         response_levels.append({
             "level_number": row.level_number,
+            "user_id": row.user_id,
             "display_name": row.display_name,
             "mobile": row.mobile,
             "email": row.email
@@ -242,8 +244,8 @@ def update_escalation(
     current_user: dict = Depends(require_admin)
 ):
 
-    if affected_ci == "":
-        affected_ci = None
+    if data.affected_ci == "":
+        data.affected_ci = None
 
     try:
         # 1️⃣ Find existing config
