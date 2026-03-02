@@ -517,3 +517,69 @@ th {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ================= BULK IMPORT PAGE ================= */
+
+.bulk-container {
+    max-width: 900px;
+    margin: 30px auto;
+}
+
+.bulk-subtitle {
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.bulk-upload-box {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px dashed #ccc;
+    margin-bottom: 20px;
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.bulk-actions .btn {
+    height: 38px; /* prevent vertical stretch */
+}
+
+.bulk-summary {
+    background: #f8f9fa;
+    padding: 18px;
+    border-radius: 8px;
+    margin-top: 20px;
+    border: 1px solid #ddd;
+}
+
+.bulk-summary h3 {
+    margin-bottom: 12px;
+}
+
+.bulk-summary div {
+    margin-bottom: 6px;
+}
+
+.bulk-errors {
+    background: #fff0f0;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    border: 1px solid #ffcccc;
+}
+
+.bulk-errors pre {
+    background: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+.hidden {
+    display: none;
+}

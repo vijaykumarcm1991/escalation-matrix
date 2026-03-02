@@ -168,6 +168,7 @@ function setupHeaderVisibility() {
     const loggedInUser = document.getElementById("loggedInUser");
     const exportBtn = document.getElementById("exportBtn");
     const dashboardBtn = document.getElementById("dashboardBtn");
+    const bulkImportBtn = document.getElementById("bulkImportBtn");
 
     const user = getUserFromToken();
 
@@ -179,6 +180,7 @@ function setupHeaderVisibility() {
         if (dashboardBtn) dashboardBtn.style.display = "none";
         if (loggedInUser) loggedInUser.innerText = "";
         if (exportBtn) exportBtn.style.display = "none";
+        if (bulkImportBtn) bulkImportBtn.style.display = "none";
     } else {
         if (loginBtn) loginBtn.style.display = "none";
         if (logoutBtn) logoutBtn.style.display = "inline-block";
@@ -188,6 +190,12 @@ function setupHeaderVisibility() {
         if (loggedInUser) loggedInUser.innerText =
             `Welcome, ${user.sub}`;
         if (exportBtn) exportBtn.style.display = "inline-block";
+        if (bulkImportBtn) {
+            bulkImportBtn.style.display = "inline-block";
+            bulkImportBtn.onclick = () => {
+                window.location.href = "/static/bulk_import.html";
+            };
+        }
     }
 }
 

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bulk Escalation Import</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+    <!-- Your existing header -->
+</header>
+
+<div class="page-container">
+    <div class="card">
+
+    <h2>Bulk Escalation Import</h2>
+    <p class="bulk-subtitle">
+        Upload Excel template. System will plan changes before applying.
+    </p>
+
+    <div class="bulk-upload-box">
+        <input type="file" id="excelFile" accept=".xlsx,.xls" />
+    </div>
+
+    <div class="bulk-actions">
+        <button class="btn primary" onclick="planBulkImport()">Plan Import</button>
+        <button class="btn success" id="applyBtn" onclick="applyBulkImport()" disabled>
+            Apply Import
+        </button>
+    </div>
+
+    <div id="planSummary" class="bulk-summary hidden"></div>
+    <div id="planErrors" class="bulk-errors hidden"></div>
+
+    </div>
+</div>
+
+<script src="/static/main.js"></script>
+<script src="/static/bulk_import.js"></script>
+
+<script>
+setupHeaderVisibility();
+</script>
+
+</body>
+</html>
