@@ -11,6 +11,7 @@ class BulkEscalation(BaseModel):
     infra_app: str
     application: str
     affected_ci: Optional[str] = None
+    location: Optional[str] = None
     levels: List[BulkLevel]
 
 class BulkImportRequest(BaseModel):

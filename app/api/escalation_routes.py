@@ -65,6 +65,12 @@ def create_escalation(
     current_user: dict = Depends(require_admin)
 ):
 
+    if data.affected_ci == "":
+        data.affected_ci = None
+    
+    if data.location == "":
+        data.location = None
+
     try:
         # 1️⃣ Check ACTIVE duplicate
         active_existing = db.query(EscalationConfig).filter(
@@ -73,6 +79,7 @@ def create_escalation(
             EscalationConfig.infra_app_id == data.infra_app_id,
             EscalationConfig.application_id == data.application_id,
             EscalationConfig.affected_ci == data.affected_ci,
+            EscalationConfig.location == data.location,
             EscalationConfig.is_active == True
         ).first()
 
@@ -89,6 +96,7 @@ def create_escalation(
             EscalationConfig.infra_app_id == data.infra_app_id,
             EscalationConfig.application_id == data.application_id,
             EscalationConfig.affected_ci == data.affected_ci,
+            EscalationConfig.location == data.location,
             EscalationConfig.is_active == False
         ).first()
 
@@ -128,7 +136,8 @@ def create_escalation(
                 geography_id=data.geography_id,
                 infra_app_id=data.infra_app_id,
                 application_id=data.application_id,
-                affected_ci=data.affected_ci
+                affected_ci=data.affected_ci,
+                location=data.location
             )
 
             db.add(config)
@@ -160,6 +169,7 @@ def create_escalation(
                 "infra_app_id": data.infra_app_id,
                 "application_id": data.application_id,
                 "affected_ci": data.affected_ci,
+                "location": data.location,
                 "levels": [level.dict() for level in data.levels]
             }
         )
@@ -182,11 +192,15 @@ def get_escalation(
     infra_app_id: int,
     application_id: int,
     affected_ci: Optional[str] = None,
+    location: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
 
     if affected_ci == "":
         affected_ci = None
+
+    if location == "":
+        location = None
 
     results = (
         db.query(
@@ -208,6 +222,7 @@ def get_escalation(
             EscalationConfig.infra_app_id == infra_app_id,
             EscalationConfig.application_id == application_id,
             EscalationConfig.affected_ci == affected_ci,
+            EscalationConfig.location == location,
             EscalationConfig.is_active == True
         )
         .order_by(EscalationLevel.level_number)
@@ -234,15 +249,31 @@ def get_escalation(
         "infra_app_id": infra_app_id,
         "application_id": application_id,
         "affected_ci": affected_ci,
+        "location": location,
         "levels": response_levels
     }
 
 @router.put("/")
 def update_escalation(
+    unit_id: int,
+    geography_id: int,
+    infra_app_id: int,
+    application_id: int,
     data: EscalationCreate,
+    affected_ci: Optional[str] = None,
+    location: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
+
+    if affected_ci == "":
+        affected_ci = None
+
+    if location == "":
+        location = None
+
+    if data.location == "":
+        data.location = None
 
     if data.affected_ci == "":
         data.affected_ci = None
@@ -250,15 +281,21 @@ def update_escalation(
     try:
         # 1️⃣ Find existing config
         config = db.query(EscalationConfig).filter(
-            EscalationConfig.unit_id == data.unit_id,
-            EscalationConfig.geography_id == data.geography_id,
-            EscalationConfig.infra_app_id == data.infra_app_id,
-            EscalationConfig.application_id == data.application_id,
-            EscalationConfig.affected_ci == data.affected_ci
+            EscalationConfig.unit_id == unit_id,
+            EscalationConfig.geography_id == geography_id,
+            EscalationConfig.infra_app_id == infra_app_id,
+            EscalationConfig.application_id == application_id,
+            EscalationConfig.affected_ci == affected_ci,
+            EscalationConfig.location == location,
+            EscalationConfig.is_active == True
         ).first()
 
         if not config:
             raise HTTPException(status_code=404, detail="Escalation config not found")
+
+        config.location = data.location
+        config.affected_ci = data.affected_ci
+        db.flush()
 
         if not data.levels:
             raise HTTPException(status_code=400, detail="At least one level required")
@@ -317,6 +354,8 @@ def update_escalation(
             entity_id=config.id,
             old_data=old_data,
             new_data={
+                "affected_ci": config.affected_ci,
+                "location": config.location,
                 "levels": [level.dict() for level in data.levels]
             }
         )
@@ -345,7 +384,8 @@ def list_escalations(db: Session = Depends(get_db)):
             EscalationConfig.geography_id,
             EscalationConfig.infra_app_id,
             EscalationConfig.application_id,
-            EscalationConfig.affected_ci
+            EscalationConfig.affected_ci,
+            EscalationConfig.location
         )
         .join(Unit, EscalationConfig.unit_id == Unit.id)
         .join(Geography, EscalationConfig.geography_id == Geography.id)
@@ -367,7 +407,8 @@ def list_escalations(db: Session = Depends(get_db)):
             "geography_id": row.geography_id,
             "infra_app_id": row.infra_app_id,
             "application_id": row.application_id,
-            "affected_ci": row.affected_ci
+            "affected_ci": row.affected_ci,
+            "location": row.location
         })
 
     return response
@@ -379,6 +420,7 @@ def delete_escalation(
     infra_app_id: int,
     application_id: int,
     affected_ci: Optional[str] = None,
+    location: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin)
 ):
@@ -386,13 +428,18 @@ def delete_escalation(
     if affected_ci == "":
         affected_ci = None
 
+    if location == "":
+        location = None
+
     try:
         config = db.query(EscalationConfig).filter(
             EscalationConfig.unit_id == unit_id,
             EscalationConfig.geography_id == geography_id,
             EscalationConfig.infra_app_id == infra_app_id,
             EscalationConfig.application_id == application_id,
-            EscalationConfig.affected_ci == affected_ci
+            EscalationConfig.affected_ci == affected_ci,
+            EscalationConfig.location == location,
+            EscalationConfig.is_active == True
         ).first()
 
         if not config:
@@ -448,6 +495,7 @@ def export_escalations(
             InfraApp.name.label("infra_app"),
             Application.name.label("application"),
             EscalationConfig.affected_ci.label("affected_ci"),
+            EscalationConfig.location.label("location"),
             EscalationLevel.level_number,
             User.display_name,
             func.coalesce(EscalationLevel.override_mobile, User.mobile).label("mobile"),
@@ -473,6 +521,7 @@ def export_escalations(
             InfraApp.name,
             Application.name,
             EscalationConfig.affected_ci,
+            EscalationConfig.location,
             EscalationLevel.level_number
         )
         .all()
@@ -485,6 +534,7 @@ def export_escalations(
             "infra_app": r.infra_app,
             "application": r.application,
             "affected_ci": r.affected_ci,
+            "location": r.location,
             "level_number": r.level_number,
             "display_name": r.display_name,
             "mobile": r.mobile,

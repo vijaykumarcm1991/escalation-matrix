@@ -60,6 +60,9 @@ def bulk_import(
         ci_value = item.affected_ci.strip() if item.affected_ci else None
         if ci_value == "":
             ci_value = None
+        location_value = item.location.strip() if item.location else None
+        if location_value == "":
+            location_value = None
 
         # Validate master references
         if unit_key not in units:
@@ -106,7 +109,8 @@ def bulk_import(
              and c.geography_id == geo_id
              and c.infra_app_id == infra_id
              and c.application_id == app_id
-             and c.affected_ci == ci_value),
+             and c.affected_ci == ci_value
+             and c.location == location_value),
             None
         )
 
@@ -168,6 +172,10 @@ def bulk_import(
             if ci_value == "":
                 ci_value = None
 
+            location_value = item.location.strip() if item.location else None
+            if location_value == "":
+                location_value = None
+
             unit_id = units[unit_key]
             geo_id = geos[geo_key]
             infra_id = infras[infra_key]
@@ -178,7 +186,8 @@ def bulk_import(
                 EscalationConfig.geography_id == geo_id,
                 EscalationConfig.infra_app_id == infra_id,
                 EscalationConfig.application_id == app_id,
-                EscalationConfig.affected_ci == ci_value
+                EscalationConfig.affected_ci == ci_value,
+                EscalationConfig.location == location_value
             ).first()
 
             # Prepare incoming user_ids
@@ -210,6 +219,7 @@ def bulk_import(
                     infra_app_id=infra_id,
                     application_id=app_id,
                     affected_ci=ci_value,
+                    location=location_value,
                     is_active=True
                 )
                 db.add(config)

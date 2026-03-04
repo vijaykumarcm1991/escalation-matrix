@@ -213,13 +213,15 @@ function renderTable(data) {
             <td>${item.infra_app}</td>
             <td>${item.application}</td>
             <td>${item.affected_ci || ""}</td>
+            <td>${item.location || ""}</td>
             <td>
                 <button class="btn secondary" onclick="viewLevels(
                     ${item.unit_id},
                     ${item.geography_id},
                     ${item.infra_app_id},
                     ${item.application_id},
-                    '${item.affected_ci || ""}'
+                    '${item.affected_ci || ""}',
+                    '${item.location || ""}'
                 )">View</button>
 
                 ${isAdminLoggedIn() ? `
@@ -228,7 +230,8 @@ function renderTable(data) {
                         ${item.geography_id},
                         ${item.infra_app_id},
                         ${item.application_id},
-                        '${item.affected_ci || ""}'
+                        '${item.affected_ci || ""}',
+                        '${item.location || ""}'
                     )">Update</button>
 
                     <button class="btn danger" onclick="deleteEscalation(
@@ -236,7 +239,8 @@ function renderTable(data) {
                         ${item.geography_id},
                         ${item.infra_app_id},
                         ${item.application_id},
-                        '${item.affected_ci || ""}'
+                        '${item.affected_ci || ""}',
+                        '${item.location || ""}'
                     )">Delete</button>
                 ` : ""}
             </td>
@@ -350,10 +354,10 @@ async function exportCSV() {
             return;
         }
 
-        let csv = "Unit,Geography,Infra App,Application,Affected CI,Level,Name,Mobile,Email\n";
+        let csv = "Unit,Geography,Infra App,Application,Affected CI,Location,Level,Name,Mobile,Email\n";
 
         data.forEach(row => {
-            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}","${row.affected_ci || ""}",` +
+            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}","${row.affected_ci || ""}","${row.location || ""}",` +
                     `"${row.level_number}","${row.display_name}","${row.mobile}","${row.email}"\n`;
         });
 
@@ -429,7 +433,8 @@ function applyFilters() {
             (item.geography || "").toLowerCase().includes(searchText) ||
             (item.infra_app || "").toLowerCase().includes(searchText) ||
             (item.application || "").toLowerCase().includes(searchText) ||
-            (item.affected_ci || "").toLowerCase().includes(searchText);
+            (item.affected_ci || "").toLowerCase().includes(searchText) ||
+            (item.location || "").toLowerCase().includes(searchText);
 
         const matchesUnit = unit ? item.unit === unit : true;
         const matchesGeo = geo ? item.geography === geo : true;
@@ -454,10 +459,10 @@ function clearFilters() {
     renderTable(escalationData);
 }
 
-async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
+async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
     
     const data = await apiFetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`
+        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`
     );
 
     showLevelsModal(data.levels);
@@ -595,9 +600,10 @@ function goToCreate() {
     window.location.href = "/static/create_escalation.html";
 }
 
-function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
+function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
 
     const ciParam = affected_ci ? encodeURIComponent(affected_ci) : "";
+    const locationParam = location ? encodeURIComponent(location) : "";
 
     const url = `/static/create_escalation.html?` +
         `unit_id=${unit_id}` +
@@ -605,6 +611,7 @@ function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affecte
         `&infra_app_id=${infra_app_id}` +
         `&application_id=${application_id}` +
         `&affected_ci=${ciParam}` +
+        `&location=${locationParam}` +
         `&mode=update`;
 
     window.location.href = url;
@@ -664,8 +671,8 @@ async function submitEscalation() {
     const geography_id = document.getElementById("geography").value;
     const infra_app_id = document.getElementById("infra_app").value;
     const application_id = document.getElementById("application").value;
-    const affected_ci =
-        document.getElementById("affected_ci").value || null;
+    const affected_ci = document.getElementById("affected_ci").value || null;
+    const location = document.getElementById("location").value || null;
 
     const users = document.getElementsByClassName("levelUserId");
     const overrideMobiles = document.getElementsByClassName("overrideMobile");
@@ -677,7 +684,6 @@ async function submitEscalation() {
 
         let userId = users[i].value;
 
-        // If hidden user_id is empty, try resolving from input text
         if (!userId) {
             const inputField = document.getElementsByClassName("levelUserInput")[i];
             const enteredName = inputField.value.trim().toLowerCase();
@@ -712,16 +718,37 @@ async function submitEscalation() {
         infra_app_id,
         application_id,
         affected_ci,
+        location,
         levels
     };
 
     try {
+
         const params = new URLSearchParams(window.location.search);
         const mode = params.get("mode");
 
         const method = mode === "update" ? "PUT" : "POST";
 
-        await apiFetch("/escalations/", {
+        let url = "/escalations/";
+
+        if (mode === "update") {
+
+            const old_unit_id = params.get("unit_id");
+            const old_geo_id = params.get("geography_id");
+            const old_infra_id = params.get("infra_app_id");
+            const old_app_id = params.get("application_id");
+            const old_ci = params.get("affected_ci") || "";
+            const old_location = params.get("location") || "";
+
+            url = `/escalations?unit_id=${old_unit_id}` +
+                  `&geography_id=${old_geo_id}` +
+                  `&infra_app_id=${old_infra_id}` +
+                  `&application_id=${old_app_id}` +
+                  `&affected_ci=${encodeURIComponent(old_ci)}` +
+                  `&location=${encodeURIComponent(old_location)}`;
+        }
+
+        await apiFetch(url, {
             method: method,
             body: JSON.stringify(payload)
         });
@@ -733,10 +760,7 @@ async function submitEscalation() {
         }, 2000);
 
     } catch (err) {
-        // // apiFetch already shows error toast if implemented correctly
-        // console.error(err);
-        // console.log("Caught error:", err);
-        // alert("Error occurred");
+        console.error(err);
     }
 }
 
@@ -776,19 +800,44 @@ async function initializeCreatePage() {
 
     initializeLevels();
 
-    // ---- READ QUERY PARAMS FOR UPDATE MODE ----
+    // ---- READ QUERY PARAMS ----
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
 
     if (mode === "update") {
 
-        document.getElementById("unit").value = params.get("unit_id");
-        document.getElementById("geography").value = params.get("geography_id");
-        document.getElementById("infra_app").value = params.get("infra_app_id");
-        document.getElementById("application").value = params.get("application_id");
-        document.getElementById("affected_ci").value = params.get("affected_ci") || "";
+        const unit_id = params.get("unit_id");
+        const geography_id = params.get("geography_id");
+        const infra_app_id = params.get("infra_app_id");
+        const application_id = params.get("application_id");
+        const affected_ci = params.get("affected_ci") || "";
+        const location = params.get("location") || "";
 
-        await checkExistingEscalation();
+        // Prefill form fields
+        document.getElementById("unit").value = unit_id;
+        document.getElementById("geography").value = geography_id;
+        document.getElementById("infra_app").value = infra_app_id;
+        document.getElementById("application").value = application_id;
+        document.getElementById("affected_ci").value = affected_ci;
+        document.getElementById("location").value = location;
+
+        try {
+
+            const data = await apiFetch(
+                `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`
+            );
+
+            // Load escalation levels
+            loadLevelsForUpdate(data.levels);
+
+            const submitBtn = document.getElementById("submitButton");
+            submitBtn.innerText = "Update Escalation";
+            submitBtn.dataset.mode = "update";
+
+        } catch (err) {
+            console.error("Failed to load escalation for update", err);
+            showToast("Unable to load escalation details", "error");
+        }
     }
 }
 
@@ -880,13 +929,26 @@ async function attachUserAutocomplete(containerDiv) {
 
 async function checkExistingEscalation() {
 
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+
+    if (mode === "update") {
+        return;
+    }
+
     const unit_id = document.getElementById("unit").value;
     const geography_id = document.getElementById("geography").value;
     const infra_app_id = document.getElementById("infra_app").value;
     const application_id = document.getElementById("application").value;
     const affected_ci = document.getElementById("affected_ci").value || "";
+    const location = document.getElementById("location").value || "";
 
-    if (!unit_id || !geography_id || !infra_app_id || !application_id) {
+    if (
+        !unit_id ||
+        !geography_id ||
+        !infra_app_id ||
+        !application_id
+    ) {
         return;
     }
 
@@ -894,7 +956,7 @@ async function checkExistingEscalation() {
 
     try {
         const data = await apiFetch(
-            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`,
+            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`,
             {},
             { silent: true }   // 🔥 important
         );
@@ -904,6 +966,11 @@ async function checkExistingEscalation() {
         submitBtn.dataset.mode = "update";
 
     } catch (err) {
+
+        if (mode === "update") {
+            return;
+        }
+
         clearLevels();
         submitBtn.innerText = "Create Escalation";
         submitBtn.dataset.mode = "create";
@@ -944,13 +1011,13 @@ function clearLevels() {
     levelCount = 0;
 }
 
-async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id, affected_ci) {
+async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
 
     const confirmDelete = confirm("Are you sure you want to delete this escalation?");
 
     if (!confirmDelete) return;
 
-    await apiFetch(`/escalations/?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}`, {
+    await apiFetch(`/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`, {
         method: "DELETE"
     });
 

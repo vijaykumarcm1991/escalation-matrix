@@ -14,6 +14,7 @@ class EscalationCreate(BaseModel):
     infra_app_id: int
     application_id: int
     affected_ci: Optional[str] = None
+    location: Optional[str] = None
     levels: List[EscalationLevelCreate]
 
 class EscalationLevelResponse(BaseModel):
@@ -28,5 +29,6 @@ class EscalationResponse(BaseModel):
     infra_app_id: int
     application_id: int
     affected_ci: Optional[str] = None
+    location: Optional[str] = None
     levels: List[EscalationLevelResponse]
 
