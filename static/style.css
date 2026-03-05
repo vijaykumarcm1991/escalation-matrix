@@ -654,24 +654,20 @@ th {
     margin-top: 2px;
 }
 
-/* Escalation level columns */
+/* Escalation level highlighting */
 
-#escalationsTable th:nth-child(n+7),
-#escalationsTable td:nth-child(n+7) {
-    min-width: 160px;
-    max-width: 180px;
+.matrix-l1 {
+    background: #e8f5e9;
 }
 
-/* Escalation color hints */
-
-#escalationsTable.matrix-mode th:nth-child(n+7) {
-    background: #fafafa;
+.matrix-l2 {
+    background: #fff8e1;
 }
 
-#escalationsTable.matrix-mode td.matrix-cell {
-    background: #fafafa;
+.matrix-l3 {
+    background: #fff3e0;
 }
 
-#escalationsTable.matrix-mode td.matrix-cell {
-    background: #f8fafc;
+.matrix-l4plus {
+    background: #ffebee;
 }

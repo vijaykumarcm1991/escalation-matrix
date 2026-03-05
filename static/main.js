@@ -172,6 +172,8 @@ async function loadEscalations() {
 
 function toggleMatrixView() {
 
+    currentPage = 1;
+
     matrixMode = !matrixMode;
 
     const table = document.getElementById("escalationsTable");
@@ -303,7 +305,21 @@ async function renderMatrixTable() {
             matrixDataCache = await apiFetch("/escalations/export");
         }
 
-        const data = matrixDataCache;
+        let data = matrixDataCache;
+
+        /* Apply filters to matrix data */
+        data = data.filter(row => {
+
+            return filteredData.some(item =>
+                item.unit === row.unit &&
+                item.geography === row.geography &&
+                item.application === row.application &&
+                (item.affected_ci || "") === (row.affected_ci || "") &&
+                (item.location || "") === (row.location || "") &&
+                (item.group_id || "") === (row.group_id || "")
+            );
+
+        });
 
         if (!data || data.length === 0) {
             return;
@@ -379,7 +395,7 @@ async function renderMatrixTable() {
         /* --------- BUILD ROWS --------- */
 
         const fragment = document.createDocumentFragment();
-        Object.values(grouped).forEach(item => {
+        for (const item of Object.values(grouped)) {
 
             let rowHTML = `
                 <td>${item.unit}</td>
@@ -391,7 +407,17 @@ async function renderMatrixTable() {
             `;
 
             for (let i = 1; i <= maxLevel; i++) {
-                rowHTML += `<td class="matrix-cell">${item.levels[i] || ""}</td>`;
+
+                let levelClass = "";
+
+                if (i === 1) levelClass = "matrix-l1";
+                else if (i === 2) levelClass = "matrix-l2";
+                else if (i === 3) levelClass = "matrix-l3";
+                else levelClass = "matrix-l4plus";
+
+                rowHTML += `<td class="matrix-cell ${levelClass}">
+                                ${item.levels[i] || ""}
+                            </td>`;
             }
 
             const tr = document.createElement("tr");
@@ -399,7 +425,7 @@ async function renderMatrixTable() {
 
             fragment.appendChild(tr);
 
-        });
+        };
 
         tbody.appendChild(fragment);
 
@@ -454,6 +480,11 @@ async function populateUserFilter() {
 }
 
 function renderPaginatedTable() {
+
+    if (matrixMode) {
+        renderMatrixTable();
+        return;
+    }
 
     const totalRows = filteredData.length;
     const start = (currentPage - 1) * rowsPerPage;
@@ -637,7 +668,11 @@ function applyFilters() {
 
     filteredData = filtered;
     currentPage = 1;
-    renderPaginatedTable();
+    if (matrixMode) {
+        renderMatrixTable();
+    } else {
+        renderPaginatedTable();
+    }
 }
 
 async function applyUserFilter() {
@@ -660,7 +695,11 @@ async function applyUserFilter() {
 
         currentPage = 1;
 
-        renderPaginatedTable();
+        if (matrixMode) {
+            renderMatrixTable();
+        } else {
+            renderPaginatedTable();
+}
 
     } catch (err) {
 
@@ -683,10 +722,14 @@ function clearFilters() {
         userFilter.value = "";
     }
 
-    filteredData = escalationData;
+    filteredData = [...escalationData];
     currentPage = 1;
 
-    renderPaginatedTable();
+    if (matrixMode) {
+        renderMatrixTable();
+    } else {
+        renderPaginatedTable();
+    }
 }
 
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
