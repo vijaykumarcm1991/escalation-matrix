@@ -510,10 +510,7 @@ def delete_escalation(
         raise e
 
 @router.get("/export")
-def export_escalations(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
+def export_escalations(db: Session = Depends(get_db)):
 
     results = (
         db.query(

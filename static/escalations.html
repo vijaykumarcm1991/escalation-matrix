@@ -55,10 +55,12 @@
             <button class="btn secondary" onclick="clearFilters()">Clear</button>
 
             <button id="exportBtn" class="btn primary" onclick="exportCSV()">Export CSV</button>
+            <button class="btn secondary" onclick="toggleMatrixView()">Matrix View</button>
 
         </div>
 
-        <table class="modern-table">
+        <div class="matrix-wrapper">
+        <table id="escalationsTable" class="modern-table">
             <thead>
                 <tr>
                     <th onclick="sortTable('unit')">Unit</th>
@@ -73,6 +75,7 @@
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
+        </div>
 
         <div class="pagination-bar">
             <div id="resultInfo"></div>

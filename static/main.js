@@ -1,4 +1,6 @@
 let escalationData = [];
+let matrixMode = false;
+let originalTableHeader = null;
 let filteredData = [];
 let currentPage = 1;
 let rowsPerPage = 10;
@@ -147,6 +149,11 @@ async function loadEscalations() {
 
     checkTokenExpiry();
 
+    if (!originalTableHeader) {
+        const table = document.getElementById("escalationsTable");
+        originalTableHeader = table.querySelector("thead").innerHTML;
+    }
+
     try {
         const data = await apiFetch("/escalations/list");
         escalationData = data;
@@ -158,6 +165,28 @@ async function loadEscalations() {
     } catch (err) {
         console.error("Escalations load error", err);
     }
+}
+
+function toggleMatrixView() {
+
+    matrixMode = !matrixMode;
+
+    const table = document.getElementById("escalationsTable");
+
+    if (matrixMode) {
+
+        renderMatrixTable();
+
+    } else {
+
+        if (originalTableHeader) {
+            table.querySelector("thead").innerHTML = originalTableHeader;
+        }
+
+        renderPaginatedTable();
+
+    }
+
 }
 
 function setupHeaderVisibility() {
@@ -253,6 +282,121 @@ function renderTable(data) {
 
         tableBody.appendChild(row);
     });
+}
+
+async function renderMatrixTable() {
+
+    const table = document.getElementById("escalationsTable");
+    const thead = table.querySelector("thead");
+    const tbody = document.getElementById("tableBody");
+
+    tbody.innerHTML = "";
+
+    try {
+
+        const data = await apiFetch("/escalations/export");
+
+        if (!data || data.length === 0) {
+            return;
+        }
+
+        const grouped = {};
+        let maxLevel = 0;
+
+        data.forEach(row => {
+
+            const key =
+                row.unit +
+                "|" +
+                row.geography +
+                "|" +
+                row.application +
+                "|" +
+                (row.affected_ci || "") +
+                "|" +
+                (row.location || "") +
+                "|" +
+                (row.group_id || "");
+
+            if (!grouped[key]) {
+
+                grouped[key] = {
+                    unit: row.unit,
+                    geography: row.geography,
+                    application: row.application,
+                    affected_ci: row.affected_ci || "",
+                    location: row.location || "",
+                    group_id: row.group_id || "",
+                    levels: {}
+                };
+
+            }
+
+            grouped[key].levels[row.level_number] =
+            `
+            <div class="matrix-cell">
+                <strong>${row.display_name || ""}</strong>
+                ${row.mobile ? `<div class="contact-line">📞 ${row.mobile}</div>` : ""}
+                ${row.email ? `<div class="contact-line">✉ ${row.email}</div>` : ""}
+            </div>
+            `;
+
+            if (row.level_number > maxLevel) {
+                maxLevel = row.level_number;
+            }
+
+        });
+
+        /* --------- BUILD DYNAMIC HEADER --------- */
+
+        let headerHTML = `
+            <tr>
+                <th>Unit</th>
+                <th>Geography</th>
+                <th>Application</th>
+                <th>Affected CI</th>
+                <th>Location</th>
+                <th>Group ID</th>
+        `;
+
+        for (let i = 1; i <= maxLevel; i++) {
+            headerHTML += `<th>L${i}</th>`;
+        }
+
+        headerHTML += `</tr>`;
+
+        thead.innerHTML = headerHTML;
+
+        /* --------- BUILD ROWS --------- */
+
+        Object.values(grouped).forEach(item => {
+
+            let rowHTML = `
+                <td>${item.unit}</td>
+                <td>${item.geography}</td>
+                <td>${item.application}</td>
+                <td>${item.affected_ci}</td>
+                <td>${item.location}</td>
+                <td>${item.group_id}</td>
+            `;
+
+            for (let i = 1; i <= maxLevel; i++) {
+                rowHTML += `<td class="matrix-cell">${item.levels[i] || ""}</td>`;
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = rowHTML;
+
+            tbody.appendChild(tr);
+
+        });
+
+    } catch (err) {
+
+        console.error("Matrix view failed", err);
+
+    }
+
 }
 
 function populateFilters(data) {

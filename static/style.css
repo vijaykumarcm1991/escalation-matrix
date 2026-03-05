@@ -583,3 +583,73 @@ th {
 .hidden {
     display: none;
 }
+
+.matrix-cell {
+    line-height: 1.4;
+    font-size: 13px;
+}
+
+/* ============================= */
+/* Matrix View Improvements */
+/* ============================= */
+
+.matrix-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#escalationsTable {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: auto;
+}
+
+#escalationsTable th,
+#escalationsTable td {
+    padding: 10px 12px;
+    font-size: 13px;
+    vertical-align: top;
+}
+
+/* Sticky first columns */
+
+#escalationsTable th:nth-child(1),
+#escalationsTable td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 3;
+    min-width: 180px;
+}
+
+#escalationsTable th:nth-child(2),
+#escalationsTable td:nth-child(2) {
+    position: sticky;
+    left: 180px;
+    background: white;
+    z-index: 3;
+    min-width: 120px;
+}
+
+#escalationsTable th:nth-child(3),
+#escalationsTable td:nth-child(3) {
+    position: sticky;
+    left: 300px;
+    background: white;
+    z-index: 3;
+    min-width: 120px;
+}
+
+/* Compact escalation cells */
+
+.matrix-cell {
+    min-width: 220px;
+    line-height: 1.4;
+}
+
+/* Contact icons */
+
+.contact-line {
+    font-size: 12px;
+    margin-top: 2px;
+}
