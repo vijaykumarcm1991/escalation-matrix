@@ -14,6 +14,7 @@ class EscalationConfig(Base):
     application_id = Column(BigInteger, ForeignKey("applications.id"), nullable=False)
     affected_ci = Column(String(255), nullable=True)
     location = Column(String(255), nullable=True)
+    group_id = Column(String(255), nullable=True)
 
     is_active = Column(Boolean, default=True)
 
@@ -28,6 +29,7 @@ class EscalationConfig(Base):
             "application_id",
             "affected_ci",
             "location",
+            "group_id",
             name="uniq_escalation"
         ),
     )

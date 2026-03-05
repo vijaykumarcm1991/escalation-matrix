@@ -80,6 +80,7 @@ def create_escalation(
             EscalationConfig.application_id == data.application_id,
             EscalationConfig.affected_ci == data.affected_ci,
             EscalationConfig.location == data.location,
+            EscalationConfig.group_id == data.group_id,
             EscalationConfig.is_active == True
         ).first()
 
@@ -97,6 +98,7 @@ def create_escalation(
             EscalationConfig.application_id == data.application_id,
             EscalationConfig.affected_ci == data.affected_ci,
             EscalationConfig.location == data.location,
+            EscalationConfig.group_id == data.group_id,
             EscalationConfig.is_active == False
         ).first()
 
@@ -137,7 +139,8 @@ def create_escalation(
                 infra_app_id=data.infra_app_id,
                 application_id=data.application_id,
                 affected_ci=data.affected_ci,
-                location=data.location
+                location=data.location,
+                group_id=data.group_id
             )
 
             db.add(config)
@@ -170,6 +173,7 @@ def create_escalation(
                 "application_id": data.application_id,
                 "affected_ci": data.affected_ci,
                 "location": data.location,
+                "group_id": data.group_id,
                 "levels": [level.dict() for level in data.levels]
             }
         )
@@ -212,7 +216,8 @@ def get_escalation(
             EscalationConfig.unit_id,
             EscalationConfig.geography_id,
             EscalationConfig.infra_app_id,
-            EscalationConfig.application_id
+            EscalationConfig.application_id,
+            EscalationConfig.group_id
         )
         .join(EscalationConfig, EscalationLevel.escalation_config_id == EscalationConfig.id)
         .join(User, EscalationLevel.user_id == User.id)
@@ -250,6 +255,7 @@ def get_escalation(
         "application_id": application_id,
         "affected_ci": affected_ci,
         "location": location,
+        "group_id": results[0].group_id,
         "levels": response_levels
     }
 
@@ -278,6 +284,9 @@ def update_escalation(
     if data.affected_ci == "":
         data.affected_ci = None
 
+    if data.group_id == "":
+        data.group_id = None
+
     try:
         # 1️⃣ Find existing config
         config = db.query(EscalationConfig).filter(
@@ -295,6 +304,7 @@ def update_escalation(
 
         config.location = data.location
         config.affected_ci = data.affected_ci
+        config.group_id = data.group_id
         db.flush()
 
         if not data.levels:
@@ -356,6 +366,7 @@ def update_escalation(
             new_data={
                 "affected_ci": config.affected_ci,
                 "location": config.location,
+                "group_id": config.group_id,
                 "levels": [level.dict() for level in data.levels]
             }
         )
@@ -385,7 +396,8 @@ def list_escalations(db: Session = Depends(get_db)):
             EscalationConfig.infra_app_id,
             EscalationConfig.application_id,
             EscalationConfig.affected_ci,
-            EscalationConfig.location
+            EscalationConfig.location,
+            EscalationConfig.group_id
         )
         .join(Unit, EscalationConfig.unit_id == Unit.id)
         .join(Geography, EscalationConfig.geography_id == Geography.id)
@@ -408,7 +420,8 @@ def list_escalations(db: Session = Depends(get_db)):
             "infra_app_id": row.infra_app_id,
             "application_id": row.application_id,
             "affected_ci": row.affected_ci,
-            "location": row.location
+            "location": row.location,
+            "group_id": row.group_id
         })
 
     return response
@@ -496,6 +509,7 @@ def export_escalations(
             Application.name.label("application"),
             EscalationConfig.affected_ci.label("affected_ci"),
             EscalationConfig.location.label("location"),
+            EscalationConfig.group_id.label("group_id"),
             EscalationLevel.level_number,
             User.display_name,
             func.coalesce(EscalationLevel.override_mobile, User.mobile).label("mobile"),
@@ -535,6 +549,7 @@ def export_escalations(
             "application": r.application,
             "affected_ci": r.affected_ci,
             "location": r.location,
+            "group_id": r.group_id,
             "level_number": r.level_number,
             "display_name": r.display_name,
             "mobile": r.mobile,

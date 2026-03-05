@@ -12,6 +12,7 @@ class BulkEscalation(BaseModel):
     application: str
     affected_ci: Optional[str] = None
     location: Optional[str] = None
+    group_id: Optional[str] = None
     levels: List[BulkLevel]
 
 class BulkImportRequest(BaseModel):

@@ -214,6 +214,7 @@ function renderTable(data) {
             <td>${item.application}</td>
             <td>${item.affected_ci || ""}</td>
             <td>${item.location || ""}</td>
+            <td>${item.group_id || ""}</td>
             <td>
                 <button class="btn secondary" onclick="viewLevels(
                     ${item.unit_id},
@@ -221,7 +222,8 @@ function renderTable(data) {
                     ${item.infra_app_id},
                     ${item.application_id},
                     '${item.affected_ci || ""}',
-                    '${item.location || ""}'
+                    '${item.location || ""}',
+                    '${item.group_id || ""}'
                 )">View</button>
 
                 ${isAdminLoggedIn() ? `
@@ -231,7 +233,8 @@ function renderTable(data) {
                         ${item.infra_app_id},
                         ${item.application_id},
                         '${item.affected_ci || ""}',
-                        '${item.location || ""}'
+                        '${item.location || ""}',
+                        '${item.group_id || ""}'
                     )">Update</button>
 
                     <button class="btn danger" onclick="deleteEscalation(
@@ -240,7 +243,8 @@ function renderTable(data) {
                         ${item.infra_app_id},
                         ${item.application_id},
                         '${item.affected_ci || ""}',
-                        '${item.location || ""}'
+                        '${item.location || ""}',
+                        '${item.group_id || ""}'
                     )">Delete</button>
                 ` : ""}
             </td>
@@ -354,10 +358,10 @@ async function exportCSV() {
             return;
         }
 
-        let csv = "Unit,Geography,Infra App,Application,Affected CI,Location,Level,Name,Mobile,Email\n";
+        let csv = "Unit,Geography,Infra App,Application,Affected CI,Location,Group ID,Level,Name,Mobile,Email\n";
 
         data.forEach(row => {
-            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}","${row.affected_ci || ""}","${row.location || ""}",` +
+            csv += `"${row.unit}","${row.geography}","${row.infra_app}","${row.application}","${row.affected_ci || ""}","${row.location || ""}","${row.group_id || ""}",` +
                     `"${row.level_number}","${row.display_name}","${row.mobile}","${row.email}"\n`;
         });
 
@@ -434,7 +438,8 @@ function applyFilters() {
             (item.infra_app || "").toLowerCase().includes(searchText) ||
             (item.application || "").toLowerCase().includes(searchText) ||
             (item.affected_ci || "").toLowerCase().includes(searchText) ||
-            (item.location || "").toLowerCase().includes(searchText);
+            (item.location || "").toLowerCase().includes(searchText) ||
+            (item.group_id || "").toLowerCase().includes(searchText);
 
         const matchesUnit = unit ? item.unit === unit : true;
         const matchesGeo = geo ? item.geography === geo : true;
@@ -459,10 +464,10 @@ function clearFilters() {
     renderTable(escalationData);
 }
 
-async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
+async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
     
     const data = await apiFetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`
+        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}&group_id=${encodeURIComponent(group_id)}`
     );
 
     showLevelsModal(data.levels);
@@ -506,7 +511,13 @@ function showLevelsModal(levels) {
     modal.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     modal.style.transform = "translate(-50%, -55%)";
 
-    let content = "<h3>Escalation Levels</h3>";
+    let content = "<h3>Escalation Details</h3>";
+
+    if(levels.length > 0 && levels[0].group_id){
+        content += `<p><b>Group ID:</b> ${levels[0].group_id}</p>`;
+    }
+
+    content += "<h4>Escalation Levels</h4>";
     content += "<table class='modern-table'>";
     content += "<tr><th>Level</th><th>Name</th><th>Mobile</th><th>Email</th></tr>";
 
@@ -600,10 +611,11 @@ function goToCreate() {
     window.location.href = "/static/create_escalation.html";
 }
 
-function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
+function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
 
     const ciParam = affected_ci ? encodeURIComponent(affected_ci) : "";
     const locationParam = location ? encodeURIComponent(location) : "";
+    const groupParam = group_id ? encodeURIComponent(group_id) : "";
 
     const url = `/static/create_escalation.html?` +
         `unit_id=${unit_id}` +
@@ -612,6 +624,7 @@ function goToUpdate(unit_id, geography_id, infra_app_id, application_id, affecte
         `&application_id=${application_id}` +
         `&affected_ci=${ciParam}` +
         `&location=${locationParam}` +
+        `&group_id=${groupParam}` +
         `&mode=update`;
 
     window.location.href = url;
@@ -673,6 +686,7 @@ async function submitEscalation() {
     const application_id = document.getElementById("application").value;
     const affected_ci = document.getElementById("affected_ci").value || null;
     const location = document.getElementById("location").value || null;
+    const group_id = document.getElementById("group_id").value || null;
 
     const users = document.getElementsByClassName("levelUserId");
     const overrideMobiles = document.getElementsByClassName("overrideMobile");
@@ -719,6 +733,7 @@ async function submitEscalation() {
         application_id,
         affected_ci,
         location,
+        group_id,
         levels
     };
 
@@ -820,6 +835,7 @@ async function initializeCreatePage() {
         document.getElementById("application").value = application_id;
         document.getElementById("affected_ci").value = affected_ci;
         document.getElementById("location").value = location;
+        document.getElementById("group_id").value = params.get("group_id") || "";
 
         try {
 

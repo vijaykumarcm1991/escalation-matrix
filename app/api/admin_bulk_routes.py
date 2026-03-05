@@ -63,6 +63,9 @@ def bulk_import(
         location_value = item.location.strip() if item.location else None
         if location_value == "":
             location_value = None
+        group_id_value = item.group_id.strip() if item.group_id else None
+        if group_id_value == "":
+            group_id_value = None
 
         # Validate master references
         if unit_key not in units:
@@ -110,7 +113,9 @@ def bulk_import(
              and c.infra_app_id == infra_id
              and c.application_id == app_id
              and c.affected_ci == ci_value
-             and c.location == location_value),
+             and c.location == location_value
+             and c.group_id == group_id_value
+             ),
             None
         )
 
@@ -136,7 +141,7 @@ def bulk_import(
 
             existing_user_ids = [lvl.user_id for lvl in existing_levels]
 
-            if incoming_user_ids == existing_user_ids:
+            if incoming_user_ids == existing_user_ids and config.group_id == item.group_id:
                 summary["no_change"] += 1
                 action = "NO_CHANGE"
             else:
@@ -175,6 +180,10 @@ def bulk_import(
             location_value = item.location.strip() if item.location else None
             if location_value == "":
                 location_value = None
+            
+            group_id_value = item.group_id.strip() if item.group_id else None
+            if group_id_value == "":
+                group_id_value = None
 
             unit_id = units[unit_key]
             geo_id = geos[geo_key]
@@ -187,7 +196,8 @@ def bulk_import(
                 EscalationConfig.infra_app_id == infra_id,
                 EscalationConfig.application_id == app_id,
                 EscalationConfig.affected_ci == ci_value,
-                EscalationConfig.location == location_value
+                EscalationConfig.location == location_value,
+                EscalationConfig.group_id == group_id_value
             ).first()
 
             # Prepare incoming user_ids
@@ -206,7 +216,7 @@ def bulk_import(
 
                 existing_user_ids = [lvl.user_id for lvl in existing_levels]
 
-                if incoming_user_ids == existing_user_ids:
+                if incoming_user_ids == existing_user_ids and config.group_id == item.group_id:
                     # Nothing changed → skip this item
                     continue
             # ---- END SKIP BLOCK ----
@@ -220,6 +230,7 @@ def bulk_import(
                     application_id=app_id,
                     affected_ci=ci_value,
                     location=location_value,
+                    group_id=group_id_value,
                     is_active=True
                 )
                 db.add(config)

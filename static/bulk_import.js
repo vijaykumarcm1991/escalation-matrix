@@ -69,6 +69,8 @@ function convertRowsToJson(rows) {
             infra_app: row["infra_app"],
             application: row["application"],
             affected_ci: row["affected_ci"] || "",
+            location: row["location"] || "",
+            group_id: row["group_id"] || "",
             levels: levels
         };
     });
