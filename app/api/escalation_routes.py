@@ -383,9 +383,12 @@ def update_escalation(
         raise e
 
 @router.get("/list")
-def list_escalations(db: Session = Depends(get_db)):
+def list_escalations(
+    user_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
 
-    results = (
+    query = (
         db.query(
             Unit.name.label("unit"),
             Geography.name.label("geography"),
@@ -403,9 +406,20 @@ def list_escalations(db: Session = Depends(get_db)):
         .join(Geography, EscalationConfig.geography_id == Geography.id)
         .join(InfraApp, EscalationConfig.infra_app_id == InfraApp.id)
         .join(Application, EscalationConfig.application_id == Application.id)
-        .filter(EscalationConfig.is_active == True)
-        .all()
     )
+
+    # Filter by user if provided
+    if user_id:
+        query = query.join(
+            EscalationLevel,
+            EscalationLevel.escalation_config_id == EscalationConfig.id
+        ).filter(
+            EscalationLevel.user_id == user_id
+        )
+
+    results = query.filter(
+        EscalationConfig.is_active == True
+    ).distinct().all()
 
     response = []
 

@@ -151,6 +151,7 @@ async function loadEscalations() {
         const data = await apiFetch("/escalations/list");
         escalationData = data;
         populateFilters(data);
+        populateUserFilter();
         filteredData = data;
         currentPage = 1;
         renderPaginatedTable();
@@ -221,9 +222,9 @@ function renderTable(data) {
                     ${item.geography_id},
                     ${item.infra_app_id},
                     ${item.application_id},
-                    '${item.affected_ci || ""}',
-                    '${item.location || ""}',
-                    '${item.group_id || ""}'
+                    encodeURIComponent('${item.affected_ci || ""}'),
+                    encodeURIComponent('${item.location || ""}'),
+                    encodeURIComponent('${item.group_id || ""}')
                 )">View</button>
 
                 ${isAdminLoggedIn() ? `
@@ -232,9 +233,9 @@ function renderTable(data) {
                         ${item.geography_id},
                         ${item.infra_app_id},
                         ${item.application_id},
-                        '${item.affected_ci || ""}',
-                        '${item.location || ""}',
-                        '${item.group_id || ""}'
+                        encodeURIComponent('${item.affected_ci || ""}'),
+                        encodeURIComponent('${item.location || ""}'),
+                        encodeURIComponent('${item.group_id || ""}')
                     )">Update</button>
 
                     <button class="btn danger" onclick="deleteEscalation(
@@ -242,9 +243,9 @@ function renderTable(data) {
                         ${item.geography_id},
                         ${item.infra_app_id},
                         ${item.application_id},
-                        '${item.affected_ci || ""}',
-                        '${item.location || ""}',
-                        '${item.group_id || ""}'
+                        encodeURIComponent('${item.affected_ci || ""}'),
+                        encodeURIComponent('${item.location || ""}'),
+                        encodeURIComponent('${item.group_id || ""}')
                     )">Delete</button>
                 ` : ""}
             </td>
@@ -265,6 +266,35 @@ function populateFilters(data) {
     fillDropdown("geoFilter", geos);
     fillDropdown("infraFilter", infras);
     fillDropdown("appFilter", apps);
+}
+
+async function populateUserFilter() {
+
+    try {
+
+        const users = await apiFetch("/users");
+
+        const select = document.getElementById("userFilter");
+
+        select.innerHTML = `<option value="">All Users</option>`;
+
+        users.forEach(user => {
+
+            const option = document.createElement("option");
+
+            option.value = user.id;
+            option.textContent = user.display_name;
+
+            select.appendChild(option);
+
+        });
+
+    } catch (err) {
+
+        console.error("Failed to load users for filter", err);
+
+    }
+
 }
 
 function renderPaginatedTable() {
@@ -454,14 +484,53 @@ function applyFilters() {
     renderPaginatedTable();
 }
 
+async function applyUserFilter() {
+
+    const userId = document.getElementById("userFilter").value;
+
+    try {
+
+        let url = "/escalations/list";
+
+        if (userId) {
+
+            url = `/escalations/list?user_id=${userId}`;
+
+        }
+
+        const data = await apiFetch(url);
+
+        filteredData = data;
+
+        currentPage = 1;
+
+        renderPaginatedTable();
+
+    } catch (err) {
+
+        console.error("User filter error", err);
+
+    }
+
+}
+
 function clearFilters() {
+
     document.getElementById("searchInput").value = "";
     document.getElementById("unitFilter").value = "";
     document.getElementById("geoFilter").value = "";
     document.getElementById("infraFilter").value = "";
     document.getElementById("appFilter").value = "";
 
-    renderTable(escalationData);
+    const userFilter = document.getElementById("userFilter");
+    if (userFilter) {
+        userFilter.value = "";
+    }
+
+    filteredData = escalationData;
+    currentPage = 1;
+
+    renderPaginatedTable();
 }
 
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
@@ -1027,19 +1096,28 @@ function clearLevels() {
     levelCount = 0;
 }
 
-async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id, affected_ci, location) {
+async function deleteEscalation(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
 
     const confirmDelete = confirm("Are you sure you want to delete this escalation?");
 
     if (!confirmDelete) return;
 
-    await apiFetch(`/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`, {
-        method: "DELETE"
-    });
+    await apiFetch(
+        `/escalations?unit_id=${unit_id}` +
+        `&geography_id=${geography_id}` +
+        `&infra_app_id=${infra_app_id}` +
+        `&application_id=${application_id}` +
+        `&affected_ci=${encodeURIComponent(affected_ci)}` +
+        `&location=${encodeURIComponent(location)}` +
+        `&group_id=${encodeURIComponent(group_id)}`,
+        {
+            method: "DELETE"
+        }
+    );
 
     showToast("Escalation deleted successfully", "success");
 
-    loadEscalations(); // refresh table
+    loadEscalations();
 }
 
 function logout() {

@@ -48,6 +48,10 @@
                 <option value="">All Applications</option>
             </select>
 
+            <select id="userFilter" onchange="applyUserFilter()">
+                <option value="">All Users</option>
+            </select>
+
             <button class="btn secondary" onclick="clearFilters()">Clear</button>
 
             <button id="exportBtn" class="btn primary" onclick="exportCSV()">Export CSV</button>
