@@ -653,3 +653,25 @@ th {
     font-size: 12px;
     margin-top: 2px;
 }
+
+/* Escalation level columns */
+
+#escalationsTable th:nth-child(n+7),
+#escalationsTable td:nth-child(n+7) {
+    min-width: 160px;
+    max-width: 180px;
+}
+
+/* Escalation color hints */
+
+#escalationsTable.matrix-mode th:nth-child(n+7) {
+    background: #fafafa;
+}
+
+#escalationsTable.matrix-mode td.matrix-cell {
+    background: #fafafa;
+}
+
+#escalationsTable.matrix-mode td.matrix-cell {
+    background: #f8fafc;
+}

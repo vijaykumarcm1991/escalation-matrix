@@ -2,6 +2,7 @@ let escalationData = [];
 let matrixMode = false;
 let originalTableHeader = null;
 let filteredData = [];
+let matrixDataCache = null;
 let currentPage = 1;
 let rowsPerPage = 10;
 let currentSort = {
@@ -147,6 +148,8 @@ function checkTokenExpiry() {
 
 async function loadEscalations() {
 
+    matrixDataCache = null;
+
     checkTokenExpiry();
 
     if (!originalTableHeader) {
@@ -175,10 +178,12 @@ function toggleMatrixView() {
 
     if (matrixMode) {
 
+        table.classList.add("matrix-mode"); 
         renderMatrixTable();
 
     } else {
 
+        table.classList.remove("matrix-mode");
         if (originalTableHeader) {
             table.querySelector("thead").innerHTML = originalTableHeader;
         }
@@ -294,7 +299,11 @@ async function renderMatrixTable() {
 
     try {
 
-        const data = await apiFetch("/escalations/export");
+        if (!matrixDataCache) {
+            matrixDataCache = await apiFetch("/escalations/export");
+        }
+
+        const data = matrixDataCache;
 
         if (!data || data.length === 0) {
             return;
@@ -369,6 +378,7 @@ async function renderMatrixTable() {
 
         /* --------- BUILD ROWS --------- */
 
+        const fragment = document.createDocumentFragment();
         Object.values(grouped).forEach(item => {
 
             let rowHTML = `
@@ -387,9 +397,11 @@ async function renderMatrixTable() {
             const tr = document.createElement("tr");
             tr.innerHTML = rowHTML;
 
-            tbody.appendChild(tr);
+            fragment.appendChild(tr);
 
         });
+
+        tbody.appendChild(fragment);
 
     } catch (err) {
 
