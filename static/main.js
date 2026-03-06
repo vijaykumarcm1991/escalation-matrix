@@ -735,7 +735,7 @@ function clearFilters() {
 async function viewLevels(unit_id, geography_id, infra_app_id, application_id, affected_ci, location, group_id) {
     
     const data = await apiFetch(
-        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}&group_id=${encodeURIComponent(group_id)}`
+        `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${affected_ci}&location=${location}&group_id=${group_id}`
     );
 
     showLevelsModal(data.levels);
@@ -1024,11 +1024,11 @@ async function submitEscalation() {
             const old_location = params.get("location") || "";
 
             url = `/escalations?unit_id=${old_unit_id}` +
-                  `&geography_id=${old_geo_id}` +
-                  `&infra_app_id=${old_infra_id}` +
-                  `&application_id=${old_app_id}` +
-                  `&affected_ci=${encodeURIComponent(old_ci)}` +
-                  `&location=${encodeURIComponent(old_location)}`;
+                    `&geography_id=${old_geo_id}` +
+                    `&infra_app_id=${old_infra_id}` +
+                    `&application_id=${old_app_id}` +
+                    `&affected_ci=${old_ci}` +
+                    `&location=${old_location}`;
         }
 
         await apiFetch(url, {
@@ -1108,7 +1108,7 @@ async function initializeCreatePage() {
         try {
 
             const data = await apiFetch(
-                `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`
+                `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${affected_ci}&location=${location}`
             );
 
             // Load escalation levels
@@ -1240,7 +1240,7 @@ async function checkExistingEscalation() {
 
     try {
         const data = await apiFetch(
-            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${encodeURIComponent(affected_ci)}&location=${encodeURIComponent(location)}`,
+            `/escalations?unit_id=${unit_id}&geography_id=${geography_id}&infra_app_id=${infra_app_id}&application_id=${application_id}&affected_ci=${affected_ci}&location=${location}`,
             {},
             { silent: true }   // 🔥 important
         );
@@ -1306,9 +1306,9 @@ async function deleteEscalation(unit_id, geography_id, infra_app_id, application
         `&geography_id=${geography_id}` +
         `&infra_app_id=${infra_app_id}` +
         `&application_id=${application_id}` +
-        `&affected_ci=${encodeURIComponent(affected_ci)}` +
-        `&location=${encodeURIComponent(location)}` +
-        `&group_id=${encodeURIComponent(group_id)}`,
+        `&affected_ci=${affected_ci}` +
+        `&location=${location}` +
+        `&group_id=${group_id}`,
         {
             method: "DELETE"
         }
