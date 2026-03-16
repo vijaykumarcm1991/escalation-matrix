@@ -17,6 +17,12 @@ class NoCacheStaticFiles(StaticFiles):
 
 # import all models so SQLAlchemy registers them
 from app.models import user, unit, geography, infra_app, application, escalation_config, escalation_level
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 
 app = FastAPI(title="Escalation Matrix API")
 

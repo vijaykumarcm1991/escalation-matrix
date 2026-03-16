@@ -17,6 +17,8 @@ from typing import Optional
 import requests
 import os
 from dotenv import load_dotenv
+import logging
+import time
 
 load_dotenv()
 
@@ -24,6 +26,8 @@ JSM_URL = os.getenv("JSM_URL")
 JSM_PAT = os.getenv("JSM_PAT")
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 def get_db():
     db = SessionLocal()
@@ -580,33 +584,68 @@ def export_escalations(db: Session = Depends(get_db)):
 @router.get("/jsm-escalation/{ticket_id}")
 def get_escalation_from_jsm(ticket_id: str, db: Session = Depends(get_db)):
 
+    start_time = time.perf_counter()
+    
+    logger.info(f"JSM escalation lookup started for ticket: {ticket_id}")
+
     headers = {
         "Authorization": f"Bearer {JSM_PAT}",
         "Accept": "application/json"
     }
 
-    response = requests.get(
-        f"{JSM_URL}/rest/api/2/issue/{ticket_id}",
-        headers=headers
-    )
+    # -----------------------------
+    # Fetch ticket from JSM
+    # -----------------------------
+    try:
+        response = requests.get(
+            f"{JSM_URL}/rest/api/2/issue/{ticket_id}",
+            headers=headers,
+            timeout=5
+        )
+    except requests.exceptions.RequestException as e:
+        logger.error(f"JSM connection error for ticket {ticket_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to reach JSM")
 
     if response.status_code != 200:
+        logger.warning(f"JSM ticket not found: {ticket_id}")
         raise HTTPException(status_code=404, detail="JSM ticket not found")
 
-    issue = response.json()["fields"]
+    issue = response.json().get("fields", {})
 
-    application = issue.get("customfield_10124", {}).get("value")
-    geography = issue.get("customfield_10126", {}).get("value")
-    unit = issue.get("customfield_10130", {}).get("value")
+    # -----------------------------
+    # Safe field extraction
+    # -----------------------------
+    def get_value(field):
+        if isinstance(field, dict):
+            return field.get("value")
+        return field
+
+    application = get_value(issue.get("customfield_10124"))
+    geography = get_value(issue.get("customfield_10126"))
+    unit = get_value(issue.get("customfield_10130"))
+    infra_app = get_value(issue.get("customfield_10132"))
+
     location = issue.get("customfield_10131")
-    infra_app = issue.get("customfield_10132", {}).get("value")
     affected_ci = issue.get("customfield_10125")
 
+    logger.info(
+        f"JSM fields extracted | ticket={ticket_id}, "
+        f"app={application}, geo={geography}, unit={unit}, "
+        f"infra_app={infra_app}, location={location}, affected_ci={affected_ci}"
+    )
+
+    # -----------------------------
+    # Geography Rule
+    # -----------------------------
     geo_list = [geography]
 
     if geography in ["Asia", "India"]:
         geo_list = ["Asia", "India"]
+        logger.info(f"Geo expansion rule applied: {geo_list}")
 
+    # -----------------------------
+    # Unit Rule
+    # -----------------------------
     unit_list = [unit]
 
     if unit in [
@@ -619,11 +658,15 @@ def get_escalation_from_jsm(ticket_id: str, db: Session = Depends(get_db)):
             "Airtel-India-South",
             "Airtel-SouthWest"
         ]
+        logger.info(f"Unit expansion rule applied: {unit_list}")
 
+    # -----------------------------
+    # Base Query
+    # -----------------------------
     query = (
-        db.query(EscalationConfig)
-        .join(Geography, EscalationConfig.geography_id == Geography.id)
+        db.query(EscalationConfig, Unit, Geography, Application)
         .join(Unit, EscalationConfig.unit_id == Unit.id)
+        .join(Geography, EscalationConfig.geography_id == Geography.id)
         .join(Application, EscalationConfig.application_id == Application.id)
         .filter(
             Geography.name.in_(geo_list),
@@ -632,17 +675,26 @@ def get_escalation_from_jsm(ticket_id: str, db: Session = Depends(get_db)):
         )
     )
 
-    if infra_app == "Infra":
-        pass
+    # -----------------------------
+    # Infra App Rule
+    # -----------------------------
+    if infra_app == "App" and unit == "NDC-Cloud":
 
-    elif infra_app == "App" and unit == "NDC-Cloud":
+        logger.info("Infra rule: App + NDC-Cloud detected")
 
         if affected_ci:
             query = query.filter(
                 EscalationConfig.affected_ci.ilike(f"%{affected_ci}%")
             )
 
+            logger.info(f"Affected CI filtering applied: {affected_ci}")
+
+    # -----------------------------
+    # Location Matching Rule
+    # -----------------------------
     if geography in ["Asia", "India"] and location:
+
+        logger.info(f"Location matching rule applied: {location}")
 
         loc_query = query.filter(
             EscalationConfig.location.ilike(f"%{location}%")
@@ -651,45 +703,80 @@ def get_escalation_from_jsm(ticket_id: str, db: Session = Depends(get_db)):
         results = loc_query.all()
 
         if not results:
+            logger.info("Location match failed, fallback to geo+unit rule")
             results = query.all()
 
     else:
-
         results = query.all()
 
+    logger.info(f"Escalation configs matched: {len(results)}")
+
+    if not results:
+        logger.info("No escalation configs found")
+        return []
+
+    # -----------------------------
+    # Fetch Levels in ONE Query
+    # -----------------------------
+    config_ids = [r[0].id for r in results]
+
+    levels = (
+        db.query(EscalationLevel, User)
+        .join(User, EscalationLevel.user_id == User.id)
+        .filter(EscalationLevel.escalation_config_id.in_(config_ids))
+        .order_by(EscalationLevel.level_number)
+        .all()
+    )
+
+    logger.info(f"Fetched escalation levels: {len(levels)}")
+
+    # -----------------------------
+    # Group levels by config
+    # -----------------------------
+    level_map = {}
+
+    for lvl, user in levels:
+
+        config_id = lvl.escalation_config_id
+
+        if config_id not in level_map:
+            level_map[config_id] = []
+
+        level_map[config_id].append({
+            "level_number": lvl.level_number,
+            "display_name": user.display_name if user else "",
+            "mobile": lvl.override_mobile or (user.mobile if user else ""),
+            "email": lvl.override_email or (user.email if user else "")
+        })
+
+    # -----------------------------
+    # Build Response
+    # -----------------------------
     response_data = []
 
-    for config in results:
-
-        levels = db.query(EscalationLevel).filter(
-            EscalationLevel.escalation_config_id == config.id
-        ).order_by(EscalationLevel.level_number).all()
-
-        level_data = []
-
-        for lvl in levels:
-
-            user = db.query(User).filter(User.id == lvl.user_id).first()
-
-            level_data.append({
-                "level_number": lvl.level_number,
-                "display_name": user.display_name if user else "",
-                "mobile": lvl.override_mobile or (user.mobile if user else ""),
-                "email": lvl.override_email or (user.email if user else "")
-            })
-
-        unit_obj = db.query(Unit).filter(Unit.id == config.unit_id).first()
-        geo_obj = db.query(Geography).filter(Geography.id == config.geography_id).first()
-        app_obj = db.query(Application).filter(Application.id == config.application_id).first()
+    for config, unit_obj, geo_obj, app_obj in results:
 
         response_data.append({
-            "unit": unit_obj.name if unit_obj else "",
-            "geography": geo_obj.name if geo_obj else "",
-            "application": app_obj.name if app_obj else "",
+            "unit": unit_obj.name,
+            "geography": geo_obj.name,
+            "application": app_obj.name,
             "affected_ci": config.affected_ci,
             "location": config.location,
             "group_id": config.group_id,
-            "levels": level_data
+            "levels": level_map.get(config.id, [])
         })
+
+    execution_time = (time.perf_counter() - start_time) * 1000
+
+    if execution_time > 300:
+        logger.warning(
+            f"Slow escalation lookup | ticket={ticket_id} | time={execution_time:.2f}ms"
+        )
+
+    logger.info(
+        f"Escalation lookup completed | ticket={ticket_id} | "
+        f"results={len(response_data)} | "
+        f"time={execution_time:.2f}ms"
+    )
 
     return response_data
