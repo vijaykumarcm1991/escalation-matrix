@@ -28,6 +28,20 @@
 <div class="container">
     <div class="card">
         <h3>Escalation Configurations</h3>
+        
+        <div class="jsm-search-box">
+            <input
+                type="text"
+                id="jsmTicket"
+                placeholder="Enter JSM Ticket ID (IND-1234)"
+            >
+
+            <button class="btn primary" onclick="searchJSMTicket()">
+                Find Escalation
+            </button>
+            <div id="incidentContext" class="incident-context hidden"></div>
+            <button class="btn secondary" onclick="resetJSM()">Reset</button>
+        </div>
 
         <div class="filter-bar">
             <input type="text" id="searchInput" placeholder="Search by Unit, Geography, Infra App or Application..." onkeyup="applyFilters()">
@@ -106,9 +120,25 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        setupHeaderVisibility();
-        loadEscalations();
-    });
+
+    setupHeaderVisibility();
+    loadEscalations();
+
+    const ticketBox = document.getElementById("jsmTicket");
+
+    if (ticketBox) {
+
+        ticketBox.addEventListener("keypress", function (e) {
+
+            if (e.key === "Enter") {
+                searchJSMTicket();
+            }
+
+        });
+
+    }
+
+});
 </script>
 
 </body>

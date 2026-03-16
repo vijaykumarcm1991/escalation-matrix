@@ -244,6 +244,31 @@ function renderTable(data) {
     data.forEach(item => {
         const row = document.createElement("tr");
 
+        if (window.jsmMatches) {
+
+            const highlight = window.jsmMatches.some(jsm =>
+                item.unit === jsm.unit &&
+                item.geography === jsm.geography &&
+                item.application === jsm.application &&
+                (item.affected_ci || "") === (jsm.affected_ci || "") &&
+                (item.location || "") === (jsm.location || "") &&
+                (item.group_id || "") === (jsm.group_id || "")
+            );
+
+            if (highlight) {
+                row.classList.add("jsm-highlight");
+
+                // Auto-scroll to highlighted row
+                setTimeout(() => {
+                    row.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+                }, 200);
+            }
+
+        }
+
         row.innerHTML = `
             <td>${item.unit}</td>
             <td>${item.geography}</td>
@@ -1478,6 +1503,96 @@ function renderAuditPagination() {
 
         container.appendChild(btn);
     }
+}
+
+async function searchJSMTicket() {
+
+    let ticket = document.getElementById("jsmTicket").value.trim();
+
+    // Accept full JSM URL
+    if (ticket.includes("/browse/")) {
+        ticket = ticket.split("/browse/")[1];
+    }
+
+    // Remove query params if pasted
+    ticket = ticket.split("?")[0];
+
+    if (!ticket) {
+        showToast("Enter JSM ticket id", "error");
+        return;
+    }
+
+    try {
+
+        const data = await apiFetch(`/escalations/jsm-escalation/${ticket}`);
+
+        window.jsmMatches = data;
+
+        if (!data || data.length === 0) {
+            showToast("No escalation found", "error");
+            return;
+        }
+
+        const contextBox = document.getElementById("incidentContext");
+
+        const ctx = data[0];
+
+        contextBox.innerHTML = `
+        <strong>Ticket:</strong> ${ticket} |
+        <strong>Application:</strong> ${ctx.application || "-"} |
+        <strong>Unit:</strong> ${ctx.unit || "-"} |
+        <strong>Geography:</strong> ${ctx.geography || "-"} |
+        <strong>Location:</strong> ${ctx.location || "-"}
+        `;
+
+        contextBox.classList.remove("hidden");
+
+        const matched = escalationData.filter(row =>
+            data.some(jsm =>
+                row.unit === jsm.unit &&
+                row.geography === jsm.geography &&
+                row.application === jsm.application &&
+                (row.affected_ci || "") === (jsm.affected_ci || "") &&
+                (row.location || "") === (jsm.location || "") &&
+                (row.group_id || "") === (jsm.group_id || "")
+            )
+        );
+
+        if (matched.length === 0) {
+            showToast("No matching escalation found in table", "error");
+            return;
+        }
+
+        filteredData = matched;
+        currentPage = 1;
+        renderPaginatedTable();
+
+    } catch (err) {
+
+        console.error("JSM lookup failed:", err);
+
+        if (err.message) {
+            showToast(err.message, "error");
+        }
+
+    }
+
+}
+
+function resetJSM(){
+
+    window.jsmMatches = null;
+
+    filteredData = escalationData;
+    currentPage = 1;
+
+    const contextBox = document.getElementById("incidentContext");
+    if(contextBox){
+        contextBox.innerHTML = "";
+        contextBox.classList.add("hidden");
+    }
+
+    renderPaginatedTable();
 }
 
 function prevAuditPage() {

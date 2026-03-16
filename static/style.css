@@ -671,3 +671,25 @@ th {
 .matrix-l4plus {
     background: #ffebee;
 }
+
+.jsm-search-box{
+    margin-bottom:15px;
+}
+
+.jsm-search-box input{
+    padding:8px;
+    width:250px;
+}
+
+.incident-context{
+    background:#eef2ff;
+    border:1px solid #c7d2fe;
+    padding:10px 14px;
+    border-radius:6px;
+    margin-bottom:12px;
+    font-size:13px;
+}
+
+.jsm-highlight{
+    background:#fef9c3 !important;
+}

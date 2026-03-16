@@ -14,6 +14,14 @@ from app.models.geography import Geography
 from app.models.infra_app import InfraApp
 from app.models.application import Application
 from typing import Optional
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+JSM_URL = os.getenv("JSM_URL")
+JSM_PAT = os.getenv("JSM_PAT")
 
 router = APIRouter()
 
@@ -568,3 +576,120 @@ def export_escalations(db: Session = Depends(get_db)):
         }
         for r in results
     ]
+
+@router.get("/jsm-escalation/{ticket_id}")
+def get_escalation_from_jsm(ticket_id: str, db: Session = Depends(get_db)):
+
+    headers = {
+        "Authorization": f"Bearer {JSM_PAT}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(
+        f"{JSM_URL}/rest/api/2/issue/{ticket_id}",
+        headers=headers
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=404, detail="JSM ticket not found")
+
+    issue = response.json()["fields"]
+
+    application = issue.get("customfield_10124", {}).get("value")
+    geography = issue.get("customfield_10126", {}).get("value")
+    unit = issue.get("customfield_10130", {}).get("value")
+    location = issue.get("customfield_10131")
+    infra_app = issue.get("customfield_10132", {}).get("value")
+    affected_ci = issue.get("customfield_10125")
+
+    geo_list = [geography]
+
+    if geography in ["Asia", "India"]:
+        geo_list = ["Asia", "India"]
+
+    unit_list = [unit]
+
+    if unit in [
+        "Airtel-India-North",
+        "Airtel-India-South",
+        "Airtel-SouthWest"
+    ]:
+        unit_list = [
+            "Airtel-India-North",
+            "Airtel-India-South",
+            "Airtel-SouthWest"
+        ]
+
+    query = (
+        db.query(EscalationConfig)
+        .join(Geography, EscalationConfig.geography_id == Geography.id)
+        .join(Unit, EscalationConfig.unit_id == Unit.id)
+        .join(Application, EscalationConfig.application_id == Application.id)
+        .filter(
+            Geography.name.in_(geo_list),
+            Unit.name.in_(unit_list),
+            EscalationConfig.is_active == True
+        )
+    )
+
+    if infra_app == "Infra":
+        pass
+
+    elif infra_app == "App" and unit == "NDC-Cloud":
+
+        if affected_ci:
+            query = query.filter(
+                EscalationConfig.affected_ci.ilike(f"%{affected_ci}%")
+            )
+
+    if geography in ["Asia", "India"] and location:
+
+        loc_query = query.filter(
+            EscalationConfig.location.ilike(f"%{location}%")
+        )
+
+        results = loc_query.all()
+
+        if not results:
+            results = query.all()
+
+    else:
+
+        results = query.all()
+
+    response_data = []
+
+    for config in results:
+
+        levels = db.query(EscalationLevel).filter(
+            EscalationLevel.escalation_config_id == config.id
+        ).order_by(EscalationLevel.level_number).all()
+
+        level_data = []
+
+        for lvl in levels:
+
+            user = db.query(User).filter(User.id == lvl.user_id).first()
+
+            level_data.append({
+                "level_number": lvl.level_number,
+                "display_name": user.display_name if user else "",
+                "mobile": lvl.override_mobile or (user.mobile if user else ""),
+                "email": lvl.override_email or (user.email if user else "")
+            })
+
+        unit_obj = db.query(Unit).filter(Unit.id == config.unit_id).first()
+        geo_obj = db.query(Geography).filter(Geography.id == config.geography_id).first()
+        app_obj = db.query(Application).filter(Application.id == config.application_id).first()
+
+        response_data.append({
+            "unit": unit_obj.name if unit_obj else "",
+            "geography": geo_obj.name if geo_obj else "",
+            "application": app_obj.name if app_obj else "",
+            "affected_ci": config.affected_ci,
+            "location": config.location,
+            "group_id": config.group_id,
+            "levels": level_data
+        })
+
+    return response_data
