@@ -41,10 +41,17 @@
             </button>
             <div id="incidentContext" class="incident-context hidden"></div>
             <button class="btn secondary" onclick="resetJSM()">Reset</button>
+            <button id="matrixToggleBtn" class="btn secondary" onclick="toggleMatrixView()">
+            Matrix View
+            </button>
         </div>
-
-        <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Search by Unit, Geography, Infra App or Application..." onkeyup="applyFilters()">
+        
+        <button class="btn secondary advanced-toggle" onclick="toggleAdvancedFilters()">
+        Advanced Filters ▼
+        </button>
+        <div id="advancedFilters" class="filter-bar">
+            
+            <input type="text" id="searchInput" class="smart-search" placeholder="Smart Search: ticket, unit, location, group, application..." onkeyup="applyFilters()">
 
             <select id="unitFilter" onchange="applyFilters()">
                 <option value="">All Units</option>
@@ -69,7 +76,6 @@
             <button class="btn secondary" onclick="clearFilters()">Clear</button>
 
             <button id="exportBtn" class="btn primary" onclick="exportCSV()">Export CSV</button>
-            <button class="btn secondary" onclick="toggleMatrixView()">Matrix View</button>
 
         </div>
 

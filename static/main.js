@@ -177,20 +177,30 @@ function toggleMatrixView() {
     matrixMode = !matrixMode;
 
     const table = document.getElementById("escalationsTable");
+    const btn = document.getElementById("matrixToggleBtn");
 
     if (matrixMode) {
 
-        table.classList.add("matrix-mode"); 
+        table.classList.add("matrix-mode");
         renderMatrixTable();
+
+        if(btn){
+            btn.innerText = "Table View";
+        }
 
     } else {
 
         table.classList.remove("matrix-mode");
+
         if (originalTableHeader) {
             table.querySelector("thead").innerHTML = originalTableHeader;
         }
 
         renderPaginatedTable();
+
+        if(btn){
+            btn.innerText = "Matrix View";
+        }
 
     }
 
@@ -675,13 +685,15 @@ function applyFilters() {
     const filtered = escalationData.filter(item => {
 
         const matchesSearch =
+            !searchText ||
+
             (item.unit || "").toLowerCase().includes(searchText) ||
             (item.geography || "").toLowerCase().includes(searchText) ||
             (item.infra_app || "").toLowerCase().includes(searchText) ||
             (item.application || "").toLowerCase().includes(searchText) ||
             (item.affected_ci || "").toLowerCase().includes(searchText) ||
             (item.location || "").toLowerCase().includes(searchText) ||
-            (item.group_id || "").toLowerCase().includes(searchText);
+            (item.group_id || "").toLowerCase().replace("@onmobile.com","").includes(searchText);
 
         const matchesUnit = unit ? item.unit === unit : true;
         const matchesGeo = geo ? item.geography === geo : true;
@@ -1610,4 +1622,29 @@ function nextAuditPage() {
         currentAuditPage++;
         renderAuditTable();
     }
+}
+
+function toggleAdvancedFilters(){
+
+    const box = document.getElementById("advancedFilters");
+    const btn = document.querySelector(".advanced-toggle");
+
+    if(box.classList.contains("open")){
+
+        box.classList.remove("open");
+
+        if(btn){
+            btn.innerText = "Advanced Filters ▼";
+        }
+
+    }else{
+
+        box.classList.add("open");
+
+        if(btn){
+            btn.innerText = "Advanced Filters ▲";
+        }
+
+    }
+
 }
